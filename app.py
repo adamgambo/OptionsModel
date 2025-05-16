@@ -12,6 +12,8 @@ from strategies.spread_strategies import credit_spread, call_spread_strategy, pu
 from strategies.advanced_strategies import iron_condor_strategy, butterfly_strategy, collar_strategy, diagonal_spread_strategy, double_diagonal_strategy, straddle_strategy, strangle_strategy, covered_strangle_strategy, synthetic_put_strategy, reverse_conversion_strategy
 from strategies.custom_strategy import custom_strategy
 from pricing import black_scholes, calculate_greeks
+from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table
+
 
 # Page configuration
 st.set_page_config(
