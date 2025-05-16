@@ -2,8 +2,6 @@
 
 A comprehensive Python-based web application for analyzing and visualizing options trading strategies using real-time market data.
 
-![Options Strategy Calculator](https://via.placeholder.com/800x400?text=Options+Strategy+Calculator)
-
 ## Features
 
 - **Live Market Data**: Fetches current stock prices and options chains from Yahoo Finance
@@ -92,16 +90,16 @@ options-calculator/
 - `scipy`: Scientific computing (for Black-Scholes model)
 - `plotly`: Interactive visualizations
 
-## Examples
+## Example Strategy Visualizations
 
 ### Long Call Analysis
-![Long Call](https://via.placeholder.com/600x300?text=Long+Call+Analysis)
+The application provides interactive payoff curves showing profit/loss at different stock prices. For a Long Call strategy, you'll see how your position's value changes as the underlying stock price moves, with clearly marked breakeven points and current price reference lines.
 
 ### Iron Condor
-![Iron Condor](https://via.placeholder.com/600x300?text=Iron+Condor+Analysis)
+For complex strategies like an Iron Condor, the visualization shows the characteristic "profit range" in the middle with defined maximum profit and loss boundaries. The heatmap view illustrates how the strategy's P/L profile changes as time passes, helping visualize time decay effects.
 
 ### Custom Strategy
-![Custom Strategy](https://via.placeholder.com/600x300?text=Custom+Strategy+Analysis)
+Build your own multi-leg strategy and instantly see the resulting payoff diagram. The custom strategy builder allows you to combine calls, puts, and stock positions with different strike prices and positions (long/short) to create virtually any options strategy.
 
 ## Limitations
 
