@@ -2,7 +2,7 @@
 import streamlit as st
 from data_fetch import get_stock_price, get_option_chain
 from strategies.basic_strategies import long_call_strategy
-from strategies.spread_strategies import credit_spread_strategy, call_spread_strategy, put_spread_strategy, calendar_spread_strategy, ratio_backspread_strategy, poor_mans_covered_call_strategy
+from strategies.spread_strategies import credit_spread, call_spread_strategy, put_spread_strategy, calendar_spread, ratio_backspread, poor_mans_covered_call
 from strategies.advanced_strategies import iron_condor_strategy, butterfly_strategy, collar_strategy, diagonal_spread_strategy, double_diagonal_strategy, straddle_strategy, strangle_strategy, covered_strangle_strategy, synthetic_put_strategy, reverse_conversion_strategy
 from strategies.custom_strategy import custom_strategy
 
