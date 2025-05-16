@@ -1,0 +1,601 @@
+/* Main application styles for Options Strategy Calculator */
+
+/* ------ Typography and Base Styles ------ */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    line-height: 1.6;
+    color: #212121;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+p {
+    margin-bottom: 1em;
+}
+
+a {
+    color: #1E88E5;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* ------ Header Components ------ */
+.main-header {
+    font-size: 2.5rem !important;
+    font-weight: 600;
+    color: #1E88E5;
+    margin-bottom: 0;
+    line-height: 1.2;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: #616161;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+
+/* ------ Card Components ------ */
+.stock-info-card {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 5px solid #1E88E5;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stock-ticker {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1E88E5;
+}
+
+.stock-name {
+    font-size: 1rem;
+    font-weight: 400;
+    color: #424242;
+}
+
+.stock-meta {
+    font-size: 0.8rem;
+    color: #616161;
+    margin-top: 5px;
+}
+
+.price-card {
+    display: flex;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-top: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.current-price {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-right: 10px;
+}
+
+.price-change {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.metric-card {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 5px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: #616161;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #212121;
+}
+
+/* ------ Strategy Info Components ------ */
+.strategy-info-card {
+    background-color: #f0f7ff;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #1E88E5;
+}
+
+.strategy-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1E88E5;
+    margin-bottom: 10px;
+}
+
+.strategy-description {
+    font-size: 0.9rem;
+    color: #424242;
+    margin-bottom: 10px;
+}
+
+.strategy-metrics {
+    background-color: #fafafa;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 0.85rem;
+}
+
+/* ------ Interactive Elements ------ */
+.strike-slider {
+    padding: 10px 0;
+}
+
+.strike-slider .stSlider > div {
+    padding-top: 0 !important;
+}
+
+.interactive-selector {
+    margin: 10px 0;
+}
+
+.tab-content {
+    padding: 15px 0;
+}
+
+/* ------ Color Indicators ------ */
+.profit {
+    color: #4CAF50 !important;
+}
+
+.loss {
+    color: #F44336 !important;
+}
+
+.neutral {
+    color: #757575 !important;
+}
+
+.atm {
+    color: #FF9800 !important;
+}
+
+.itm {
+    color: #4CAF50 !important;
+}
+
+.otm {
+    color: #F44336 !important;
+}
+
+/* ------ Mobile Optimized View ------ */
+.mobile-card {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1E88E5;
+    margin-bottom: 10px;
+}
+
+.mobile-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.mobile-metrics .metric {
+    flex: 1 0 calc(50% - 10px);
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.mobile-content {
+    font-size: 1rem;
+    color: #212121;
+}
+
+.mobile-scenario {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background-color: white;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.scenario-label {
+    font-weight: 500;
+}
+
+.scenario-price {
+    font-weight: 400;
+    color: #616161;
+}
+
+.scenario-pl {
+    font-weight: 600;
+}
+
+/* ------ Option Chain Styling ------ */
+.option-chain {
+    font-size: 0.85rem;
+}
+
+.option-chain th {
+    background-color: #f1f1f1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.option-chain tr:hover {
+    background-color: #f5f5f5;
+}
+
+.chain-strike {
+    font-weight: 600;
+}
+
+.chain-premium {
+    color: #1E88E5;
+    font-weight: 500;
+}
+
+.chain-volume {
+    color: #9E9E9E;
+}
+
+.chain-oi {
+    color: #616161;
+}
+
+.chain-iv {
+    color: #673AB7;
+    font-weight: 500;
+}
+
+/* ------ Custom Strategy Builder ------ */
+.leg-card {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid #1E88E5;
+}
+
+.call-leg {
+    border-left-color: #4CAF50;
+}
+
+.put-leg {
+    border-left-color: #F44336;
+}
+
+.stock-leg {
+    border-left-color: #FF9800;
+}
+
+.long-position {
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+.short-position {
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+.leg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.leg-title {
+    font-weight: 600;
+    color: #424242;
+}
+
+.leg-actions {
+    display: flex;
+    gap: 5px;
+}
+
+/* ------ Sidebar Styling ------ */
+.sidebar .stTabs [data-baseweb="tab-list"] {
+    gap: 1px;
+}
+
+.sidebar .stTabs [data-baseweb="tab"] {
+    height: 40px;
+    white-space: pre-wrap;
+    background-color: #f1f3f4;
+    border-radius: 4px;
+}
+
+.sidebar .stTabs [aria-selected="true"] {
+    background-color: #1E88E5;
+    color: white;
+}
+
+/* ------ Analysis Panel Styling ------ */
+.analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.analysis-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1E88E5;
+}
+
+.analysis-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.analysis-metric {
+    flex: 1 0 calc(25% - 15px);
+    min-width: 150px;
+    background-color: #f9f9f9;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-metric-label {
+    font-size: 0.85rem;
+    color: #616161;
+    margin-bottom: 5px;
+}
+
+.analysis-metric-value {
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+/* ------ Tooltips and Explainers ------ */
+.tooltip-icon {
+    color: #9E9E9E;
+    margin-left: 5px;
+    cursor: help;
+}
+
+.tooltip-text {
+    font-size: 0.8rem;
+    color: #757575;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+.info-box {
+    background-color: #E3F2FD;
+    border-radius: 6px;
+    padding: 10px 15px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+    border-left: 3px solid #1E88E5;
+}
+
+.warning-box {
+    background-color: #FFF8E1;
+    border-radius: 6px;
+    padding: 10px 15px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+    border-left: 3px solid #FFC107;
+}
+
+/* ------ Loading and Feedback Indicators ------ */
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+}
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #757575;
+    margin-top: 5px;
+}
+
+/* ------ Footer Styling ------ */
+.footer {
+    padding: 20px 0;
+    margin-top: 30px;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #757575;
+}
+
+.footer a {
+    color: #1E88E5;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+/* ------ Dark Theme Overrides ------ */
+.dark-mode {
+    background-color: #121212;
+    color: #E0E0E0;
+}
+
+.dark-mode .main-header {
+    color: #90CAF9;
+}
+
+.dark-mode .subtitle {
+    color: #B0BEC5;
+}
+
+.dark-mode .stock-info-card {
+    background-color: #1E1E1E;
+    border-left-color: #90CAF9;
+}
+
+.dark-mode .stock-ticker {
+    color: #90CAF9;
+}
+
+.dark-mode .stock-name,
+.dark-mode .stock-meta {
+    color: #B0BEC5;
+}
+
+.dark-mode .price-card {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .metric-card {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .metric-label {
+    color: #B0BEC5;
+}
+
+.dark-mode .metric-value {
+    color: #E0E0E0;
+}
+
+.dark-mode .profit {
+    color: #81C784 !important;
+}
+
+.dark-mode .loss {
+    color: #E57373 !important;
+}
+
+.dark-mode .footer {
+    border-top-color: #333333;
+    color: #B0BEC5;
+}
+
+.dark-mode .footer a {
+    color: #90CAF9;
+}
+
+/* ------ Responsive Adjustments ------ */
+@media screen and (max-width: 768px) {
+    .main-header {
+        font-size: 2rem !important;
+    }
+    
+    .analysis-metrics {
+        flex-direction: column;
+    }
+    
+    .analysis-metric {
+        width: 100%;
+    }
+    
+    .mobile-metrics .metric {
+        flex: 1 0 100%;
+    }
+    
+    .mobile-scenario {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+
+/* ------ Print Styles ------ */
+@media print {
+    .sidebar {
+        display: none !important;
+    }
+    
+    .main-content {
+        width: 100% !important;
+    }
+    
+    .stTabs, .stButton {
+        display: none !important;
+    }
+    
+    .main-header {
+        color: #000 !important;
+    }
+    
+    .stock-info-card {
+        break-inside: avoid;
+    }
+    
+    .metric-card {
+        break-inside: avoid;
+    }
+    
+    .plotly-graph {
+        break-inside: avoid;
+        height: 400px !important;
+    }
+}
+
+/* ------ Animation Effects ------ */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fadeIn {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.slideIn {
+    animation: slideIn 0.3s ease-in-out;
+}
+
+/* Apply animations to elements */
+.stock-info-card,
+.metric-card,
+.mobile-card {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.analysis-metric {
+    animation: slideIn 0.3s ease-in-out;
+}
