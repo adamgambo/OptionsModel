@@ -36,6 +36,7 @@ def format_contract_size(value, contract_size=100):
 def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
     """
     Calculate the payoff of a strategy over a range of prices at expiration.
+    Uses entry prices for P/L calculations.
     
     Parameters:
     strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
@@ -54,6 +55,8 @@ def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
         leg_type = leg.get('type')
         position = leg.get('position')
         strike = leg.get('strike')
+        
+        # Use entry price (price) for P/L calculations, not current_price
         premium = leg.get('price', 0)
         quantity = leg.get('quantity', 1)
         
@@ -82,7 +85,7 @@ def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry,
                                    risk_free_rate=0.03, volatility=0.3):
     """
     Calculate the current value of a strategy over a range of prices before expiration.
-    Uses Black-Scholes pricing model.
+    Uses current_price for market value calculations and price for cost basis.
     
     Parameters:
     strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
@@ -101,7 +104,10 @@ def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry,
         leg_type = leg.get('type')
         position = leg.get('position')
         strike = leg.get('strike')
-        premium = leg.get('price', 0)
+        
+        # Use price for cost basis and current_price for current value
+        entry_premium = leg.get('price', 0)
+        current_premium = leg.get('current_price', entry_premium)  # Default to entry if current not available
         quantity = leg.get('quantity', 1)
         
         # Sign based on position (long or short)
@@ -113,14 +119,95 @@ def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry,
                 option_value = black_scholes(
                     leg_type, price, strike, years_to_expiry, risk_free_rate, volatility
                 )
-                values[i] += sign * (option_value - premium) * quantity
+                
+                # Calculate unrealized P/L: current theoretical value - entry price
+                unrealized_pl = option_value - entry_premium
+                values[i] += sign * unrealized_pl * quantity
                 
         elif leg_type == 'stock':
             # Stock value: current_price - purchase_price
-            purchase_price = leg.get('price', price_range[0])  # Default to first price if not specified
+            purchase_price = leg.get('price', price_range[0])
             values += sign * (price_range - purchase_price) * quantity
     
     return values * 100  # Multiply by contract size
+
+def create_unrealized_pl_table(strategy_legs, current_price):
+    """
+    Create a table showing unrealized P/L for each leg of the strategy.
+    
+    Parameters:
+    strategy_legs (list): List of leg dictionaries
+    current_price (float): Current stock price
+    
+    Returns:
+    pd.DataFrame: DataFrame with unrealized P/L analysis
+    """
+    # Create DataFrame
+    pl_data = []
+    
+    total_entry_cost = 0
+    total_current_value = 0
+    
+    for i, leg in enumerate(strategy_legs):
+        leg_type = leg.get('type')
+        position = leg.get('position')
+        quantity = leg.get('quantity', 1)
+        
+        # Get prices
+        entry_price = leg.get('price', 0)
+        current_market_price = leg.get('current_price', entry_price)
+        
+        # Calculate leg costs/values
+        if position == 'long':
+            entry_cost = entry_price * quantity * 100
+            current_value = current_market_price * quantity * 100
+            sign = 1
+        else:  # short
+            entry_cost = -entry_price * quantity * 100
+            current_value = -current_market_price * quantity * 100
+            sign = -1
+        
+        # Calculate P/L
+        unrealized_pl = sign * (current_value - entry_cost)
+        
+        # Format type and position
+        if leg_type == 'call':
+            desc = f"{position.capitalize()} Call"
+            if 'strike' in leg:
+                desc += f" @ ${leg['strike']:.2f}"
+        elif leg_type == 'put':
+            desc = f"{position.capitalize()} Put"
+            if 'strike' in leg:
+                desc += f" @ ${leg['strike']:.2f}"
+        else:  # stock
+            desc = f"{position.capitalize()} Stock"
+        
+        # Add to data
+        pl_data.append({
+            'Leg': f"Leg {i+1}",
+            'Description': desc,
+            'Entry Price': f"${entry_price:.2f}",
+            'Current Price': f"${current_market_price:.2f}",
+            'Unrealized P/L': f"${unrealized_pl:.2f}",
+            'P/L %': f"{(unrealized_pl/abs(entry_cost))*100:.1f}%" if entry_cost != 0 else "N/A"
+        })
+        
+        # Update totals
+        total_entry_cost += entry_cost
+        total_current_value += current_value
+    
+    # Add total row
+    total_pl = total_current_value - total_entry_cost
+    pl_data.append({
+        'Leg': "Total",
+        'Description': "All Legs",
+        'Entry Price': f"${abs(total_entry_cost):.2f}",
+        'Current Price': f"${abs(total_current_value):.2f}",
+        'Unrealized P/L': f"${total_pl:.2f}",
+        'P/L %': f"{(total_pl/abs(total_entry_cost))*100:.1f}%" if total_entry_cost != 0 else "N/A"
+    })
+    
+    return pd.DataFrame(pl_data)
 
 def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range=None, 
                        days_to_expiry=None, show_current_value=True):

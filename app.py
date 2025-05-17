@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
 from strategies.strategies_factory import create_strategy
 from pricing import calculate_implied_volatility, calculate_greeks
-from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price
+from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table
 
 # Page configuration with improved styling
 st.set_page_config(
@@ -344,17 +344,39 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             
             # Get option data
             option_data = calls_df[calls_df['strike'] == selected_strike].iloc[0]
-            premium = option_data['lastPrice']
+            market_premium = option_data['lastPrice']
+            
+            # Allow user to specify a different entry price
+            use_custom_price = st.checkbox("I purchased this option at a different price")
+            if use_custom_price:
+                entry_premium = st.number_input(
+                    "Your purchase price", 
+                    min_value=0.01, 
+                    max_value=None, 
+                    value=market_premium,
+                    step=0.01,
+                    format="%.2f"
+                )
+                
+                # Calculate unrealized P/L based on entry vs current
+                unrealized_pl = (market_premium - entry_premium) * 100  # Per contract
+                st.metric(
+                    "Unrealized P/L", 
+                    f"${unrealized_pl:.2f}", 
+                    delta=f"{(unrealized_pl/(entry_premium*100))*100:.1f}%" if entry_premium > 0 else None
+                )
+            else:
+                entry_premium = market_premium
             
             # Display option details with improved UI
             cols = st.columns(3)
             with cols[0]:
-                st.metric("Option Premium", f"${premium:.2f}", delta=None)
+                st.metric("Current Market Premium", f"${market_premium:.2f}", delta=None)
             with cols[1]:
-                contract_value = premium * 100
+                contract_value = entry_premium * 100
                 st.metric("Contract Value", f"${contract_value:.2f}", delta=None)
             with cols[2]:
-                breakeven = selected_strike + premium
+                breakeven = selected_strike + entry_premium
                 st.metric("Breakeven", f"${breakeven:.2f}", delta=f"{((breakeven/current_price)-1)*100:.1f}%")
             
             # Option to adjust quantity
@@ -378,7 +400,8 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 "long_call",
                 strike=selected_strike,
                 expiration=expiry,
-                premium=premium,
+                current_premium=market_premium,
+                entry_premium=entry_premium,
                 quantity=quantity,
                 iv=iv
             )
@@ -398,16 +421,38 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             selected_strike = available_strikes[selected_strike_index]
             
             option_data = puts_df[puts_df['strike'] == selected_strike].iloc[0]
-            premium = option_data['lastPrice']
+            market_premium = option_data['lastPrice']
+            
+            # Allow user to specify a different entry price
+            use_custom_price = st.checkbox("I purchased this option at a different price")
+            if use_custom_price:
+                entry_premium = st.number_input(
+                    "Your purchase price", 
+                    min_value=0.01, 
+                    max_value=None, 
+                    value=market_premium,
+                    step=0.01,
+                    format="%.2f"
+                )
+                
+                # Calculate unrealized P/L based on entry vs current
+                unrealized_pl = (market_premium - entry_premium) * 100  # Per contract
+                st.metric(
+                    "Unrealized P/L", 
+                    f"${unrealized_pl:.2f}", 
+                    delta=f"{(unrealized_pl/(entry_premium*100))*100:.1f}%" if entry_premium > 0 else None
+                )
+            else:
+                entry_premium = market_premium
             
             cols = st.columns(3)
             with cols[0]:
-                st.metric("Option Premium", f"${premium:.2f}", delta=None)
+                st.metric("Current Market Premium", f"${market_premium:.2f}", delta=None)
             with cols[1]:
-                contract_value = premium * 100
+                contract_value = entry_premium * 100
                 st.metric("Contract Value", f"${contract_value:.2f}", delta=None)
             with cols[2]:
-                breakeven = selected_strike - premium
+                breakeven = selected_strike - entry_premium
                 st.metric("Breakeven", f"${breakeven:.2f}", delta=f"{((breakeven/current_price)-1)*100:.1f}%")
             
             quantity = st.number_input("Quantity (# of contracts)", min_value=1, value=1)
@@ -428,7 +473,8 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 "long_put",
                 strike=selected_strike,
                 expiration=expiry,
-                premium=premium,
+                current_premium=market_premium,
+                entry_premium=entry_premium,
                 quantity=quantity,
                 iv=iv
             )
@@ -450,28 +496,67 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             selected_strike = available_strikes[selected_strike_index]
             
             option_data = calls_df[calls_df['strike'] == selected_strike].iloc[0]
-            premium = option_data['lastPrice']
+            market_premium = option_data['lastPrice']
+            
+            # Allow user to specify a different entry price for the call
+            use_custom_call_price = st.checkbox("I sold this call at a different price")
+            if use_custom_call_price:
+                entry_premium = st.number_input(
+                    "Your sale price", 
+                    min_value=0.01, 
+                    max_value=None, 
+                    value=market_premium,
+                    step=0.01,
+                    format="%.2f"
+                )
+                
+                # Calculate unrealized P/L
+                unrealized_pl = (entry_premium - market_premium) * 100  # Per contract
+                st.metric(
+                    "Unrealized Call P/L", 
+                    f"${unrealized_pl:.2f}", 
+                    delta=f"{(unrealized_pl/(entry_premium*100))*100:.1f}%" if entry_premium > 0 else None
+                )
+            else:
+                entry_premium = market_premium
             
             # Stock cost basis adjustment
-            stock_price = st.number_input("Stock Cost Basis", 
-                                         min_value=current_price * 0.5, 
-                                         max_value=current_price * 1.5,
-                                         value=current_price,
-                                         step=0.01,
-                                         format="%.2f")
+            st.subheader("Stock Component")
+            use_custom_stock_price = st.checkbox("I purchased the stock at a different price than current")
+            current_stock_price = current_price
+            
+            if use_custom_stock_price:
+                stock_price = st.number_input(
+                    "Stock Cost Basis", 
+                    min_value=0.01,
+                    max_value=None,
+                    value=current_price,
+                    step=0.01,
+                    format="%.2f"
+                )
+                
+                # Calculate unrealized stock P/L
+                unrealized_stock_pl = (current_stock_price - stock_price) * 100  # 100 shares
+                st.metric(
+                    "Unrealized Stock P/L", 
+                    f"${unrealized_stock_pl:.2f}", 
+                    delta=f"{(unrealized_stock_pl/(stock_price*100))*100:.1f}%" if stock_price > 0 else None
+                )
+            else:
+                stock_price = current_stock_price
             
             # Display strategy metrics with improved visuals
             metrics_cols = st.columns(3)
             with metrics_cols[0]:
-                income = premium * 100
+                income = entry_premium * 100
                 st.metric("Premium Income", f"${income:.2f}", delta=f"{income/(stock_price*100)*100:.2f}% yield")
             
             with metrics_cols[1]:
-                max_profit = ((selected_strike - stock_price) + premium) * 100
+                max_profit = ((selected_strike - stock_price) + entry_premium) * 100
                 st.metric("Max Profit", f"${max_profit:.2f}", delta=f"{max_profit/(stock_price*100)*100:.2f}% return")
             
             with metrics_cols[2]:
-                breakeven = stock_price - premium
+                breakeven = stock_price - entry_premium
                 st.metric("Breakeven", f"${breakeven:.2f}", delta=f"{(breakeven-current_price):.2f} from current")
                 
             quantity = st.number_input("Quantity (# of covered call units)", min_value=1, value=1)
@@ -479,10 +564,12 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             # Create strategy using factory method
             return create_strategy(
                 "covered_call",
+                current_stock_price=current_stock_price,
                 stock_price=stock_price,
                 call_strike=selected_strike,
                 expiration=expiry,
-                call_premium=premium,
+                current_call_premium=market_premium,
+                call_premium=entry_premium,
                 quantity=quantity,
                 iv=option_data.get('impliedVolatility', 0.3)
             )
@@ -510,9 +597,24 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 )
                 long_strike = available_strikes[long_strike_index]
                 long_option = calls_df[calls_df['strike'] == long_strike].iloc[0]
-                long_premium = long_option['lastPrice']
+                long_market_premium = long_option['lastPrice']
                 
-                st.metric("Premium", f"${long_premium:.2f}")
+                # Custom entry price for long leg
+                use_custom_long_price = st.checkbox("I purchased this call at a different price")
+                if use_custom_long_price:
+                    long_entry_premium = st.number_input(
+                        "Your purchase price (long call)", 
+                        min_value=0.01, 
+                        max_value=None, 
+                        value=long_market_premium,
+                        step=0.01,
+                        format="%.2f",
+                        key="long_entry"
+                    )
+                else:
+                    long_entry_premium = long_market_premium
+                
+                st.metric("Current Market Premium", f"${long_market_premium:.2f}")
                 st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
             
             with col2:
@@ -528,26 +630,47 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     )
                     short_strike = available_strikes[short_strike_index]
                     short_option = calls_df[calls_df['strike'] == short_strike].iloc[0]
-                    short_premium = short_option['lastPrice']
+                    short_market_premium = short_option['lastPrice']
                     
-                    st.metric("Premium", f"${short_premium:.2f}")
+                    # Custom entry price for short leg
+                    use_custom_short_price = st.checkbox("I sold this call at a different price")
+                    if use_custom_short_price:
+                        short_entry_premium = st.number_input(
+                            "Your sale price (short call)", 
+                            min_value=0.01, 
+                            max_value=None, 
+                            value=short_market_premium,
+                            step=0.01,
+                            format="%.2f",
+                            key="short_entry"
+                        )
+                    else:
+                        short_entry_premium = short_market_premium
+                    
+                    st.metric("Current Market Premium", f"${short_market_premium:.2f}")
                     st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
                 else:
                     st.error("No higher strikes available for the short call leg")
                     short_strike = None
-                    short_premium = 0
+                    short_market_premium = 0
+                    short_entry_premium = 0
                     short_option = None
             
             if short_strike:
                 # Calculate and display spread metrics
-                net_debit = long_premium - short_premium
+                entry_net_debit = long_entry_premium - short_entry_premium
+                current_net_debit = long_market_premium - short_market_premium
                 spread_width = short_strike - long_strike
-                max_profit = (spread_width - net_debit) * 100
-                max_loss = net_debit * 100
+                max_profit = (spread_width - entry_net_debit) * 100
+                max_loss = entry_net_debit * 100
+                
+                # Calculate unrealized P/L
+                unrealized_pl = (current_net_debit - entry_net_debit) * 100  # Per spread
                 
                 metrics_cols = st.columns(4)
                 with metrics_cols[0]:
-                    st.metric("Net Debit", f"${net_debit:.2f}")
+                    st.metric("Entry Net Debit", f"${entry_net_debit:.2f}")
+                    st.caption(f"Current: ${current_net_debit:.2f}")
                 
                 with metrics_cols[1]:
                     st.metric("Spread Width", f"${spread_width:.2f}")
@@ -562,8 +685,15 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     else:
                         st.metric("Risk/Reward", "No Risk")
                 
+                # Display unrealized P/L
+                st.metric(
+                    "Unrealized P/L", 
+                    f"${-unrealized_pl:.2f}",  # Negative because debit increased = loss
+                    delta=f"{(-unrealized_pl/max_loss)*100:.1f}%" if max_loss > 0 else None
+                )
+                
                 # Calculate breakeven
-                breakeven = long_strike + net_debit
+                breakeven = long_strike + entry_net_debit
                 st.progress((breakeven - long_strike) / spread_width)
                 st.caption(f"Breakeven: ${breakeven:.2f} ({((breakeven/current_price)-1)*100:.1f}% from current price)")
                 
@@ -574,8 +704,10 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     long_strike=long_strike,
                     short_strike=short_strike,
                     expiration=expiry,
-                    long_premium=long_premium,
-                    short_premium=short_premium,
+                    current_long_premium=long_market_premium,
+                    current_short_premium=short_market_premium,
+                    long_premium=long_entry_premium,
+                    short_premium=short_entry_premium,
                     quantity=quantity,
                     long_iv=long_option.get('impliedVolatility', 0.3),
                     short_iv=short_option.get('impliedVolatility', 0.3)
@@ -606,8 +738,47 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             # Get option data for puts
             long_put_data = puts_df[puts_df['strike'] == long_put_strike].iloc[0]
             short_put_data = puts_df[puts_df['strike'] == short_put_strike].iloc[0]
-            long_put_premium = long_put_data['lastPrice']
-            short_put_premium = short_put_data['lastPrice']
+            long_put_market_premium = long_put_data['lastPrice']
+            short_put_market_premium = short_put_data['lastPrice']
+            
+            # Allow custom entry prices for put legs
+            put_col1, put_col2 = st.columns(2)
+            
+            with put_col1:
+                st.subheader("Long Put Settings")
+                use_custom_long_put = st.checkbox("Custom long put entry")
+                if use_custom_long_put:
+                    long_put_entry_premium = st.number_input(
+                        "Your purchase price", 
+                        min_value=0.01, 
+                        max_value=None, 
+                        value=long_put_market_premium,
+                        step=0.01,
+                        format="%.2f",
+                        key="long_put_entry"
+                    )
+                else:
+                    long_put_entry_premium = long_put_market_premium
+                
+                st.metric("Market Premium", f"${long_put_market_premium:.2f}")
+            
+            with put_col2:
+                st.subheader("Short Put Settings")
+                use_custom_short_put = st.checkbox("Custom short put entry")
+                if use_custom_short_put:
+                    short_put_entry_premium = st.number_input(
+                        "Your sale price", 
+                        min_value=0.01, 
+                        max_value=None, 
+                        value=short_put_market_premium,
+                        step=0.01,
+                        format="%.2f",
+                        key="short_put_entry"
+                    )
+                else:
+                    short_put_entry_premium = short_put_market_premium
+                
+                st.metric("Market Premium", f"${short_put_market_premium:.2f}")
             
             # Bear Call Spread configuration (upper part)
             st.subheader("Bear Call Spread (Higher Strikes)")
@@ -633,20 +804,66 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             # Get option data for calls
             short_call_data = calls_df[calls_df['strike'] == short_call_strike].iloc[0]
             long_call_data = calls_df[calls_df['strike'] == long_call_strike].iloc[0]
-            short_call_premium = short_call_data['lastPrice']
-            long_call_premium = long_call_data['lastPrice']
+            short_call_market_premium = short_call_data['lastPrice']
+            long_call_market_premium = long_call_data['lastPrice']
             
-            # Calculate net credit and strategy metrics
-            net_credit = (short_put_premium - long_put_premium) + (short_call_premium - long_call_premium)
+            # Allow custom entry prices for call legs
+            call_col1, call_col2 = st.columns(2)
+            
+            with call_col1:
+                st.subheader("Short Call Settings")
+                use_custom_short_call = st.checkbox("Custom short call entry")
+                if use_custom_short_call:
+                    short_call_entry_premium = st.number_input(
+                        "Your sale price", 
+                        min_value=0.01, 
+                        max_value=None, 
+                        value=short_call_market_premium,
+                        step=0.01,
+                        format="%.2f",
+                        key="short_call_entry"
+                    )
+                else:
+                    short_call_entry_premium = short_call_market_premium
+                
+                st.metric("Market Premium", f"${short_call_market_premium:.2f}")
+            
+            with call_col2:
+                st.subheader("Long Call Settings")
+                use_custom_long_call = st.checkbox("Custom long call entry")
+                if use_custom_long_call:
+                    long_call_entry_premium = st.number_input(
+                        "Your purchase price", 
+                        min_value=0.01, 
+                        max_value=None, 
+                        value=long_call_market_premium,
+                        step=0.01,
+                        format="%.2f",
+                        key="long_call_entry"
+                    )
+                else:
+                    long_call_entry_premium = long_call_market_premium
+                
+                st.metric("Market Premium", f"${long_call_market_premium:.2f}")
+            
+            # Calculate net credit and strategy metrics for entry prices
+            entry_net_credit = (short_put_entry_premium - long_put_entry_premium) + (short_call_entry_premium - long_call_entry_premium)
+            current_net_credit = (short_put_market_premium - long_put_market_premium) + (short_call_market_premium - long_call_market_premium)
+            
             put_width = short_put_strike - long_put_strike
             call_width = long_call_strike - short_call_strike
-            max_profit = net_credit * 100
+            
+            max_profit = entry_net_credit * 100
             max_loss = min(put_width, call_width) * 100 - max_profit
+            
+            # Calculate unrealized P/L
+            unrealized_pl = (entry_net_credit - current_net_credit) * 100
             
             # Display strategy metrics with improved visuals
             metrics_cols = st.columns(4)
             with metrics_cols[0]:
-                st.metric("Net Credit", f"${net_credit:.2f}")
+                st.metric("Entry Net Credit", f"${entry_net_credit:.2f}")
+                st.caption(f"Current: ${current_net_credit:.2f}")
             
             with metrics_cols[1]:
                 st.metric("Max Profit", f"${max_profit:.2f}")
@@ -661,76 +878,16 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 else:
                     st.metric("Risk/Reward", "∞")
             
+            # Display unrealized P/L
+            st.metric(
+                "Unrealized P/L", 
+                f"${unrealized_pl:.2f}", 
+                delta=f"{(unrealized_pl/max_profit)*100:.1f}%" if max_profit > 0 else None
+            )
+            
             # Show profit range visually
             profit_range = f"${short_put_strike:.2f} to ${short_call_strike:.2f}"
             st.info(f"Profit Range: {profit_range}")
-            
-            # Visualize the iron condor structure
-            price_points = np.linspace(long_put_strike*0.9, long_call_strike*1.1, 100)
-            
-            # Create breakeven points
-            lower_breakeven = short_put_strike - net_credit
-            upper_breakeven = short_call_strike + net_credit
-            
-            # Create visual representation of iron condor
-            fig = go.Figure()
-            
-            # Add profit zones
-            fig.add_shape(
-                type="rect",
-                x0=lower_breakeven,
-                x1=upper_breakeven,
-                y0=0,
-                y1=max_profit,
-                fillcolor="green",
-                opacity=0.2,
-                line=dict(width=0),
-            )
-            
-            # Add current price line
-            fig.add_shape(
-                type="line",
-                x0=current_price,
-                x1=current_price,
-                y0=-max_loss*1.1,
-                y1=max_profit*1.1,
-                line=dict(color="red", width=2, dash="dash"),
-            )
-            
-            # Add profit profile
-            fig.add_trace(go.Scatter(
-                x=[long_put_strike, short_put_strike, short_call_strike, long_call_strike],
-                y=[-max_loss+max_profit, max_profit, max_profit, -max_loss+max_profit],
-                mode="lines",
-                line=dict(color="blue", width=3),
-                name="P/L at Expiration"
-            ))
-            
-            # Add strike markers
-            for strike, name in zip(
-                [long_put_strike, short_put_strike, short_call_strike, long_call_strike],
-                ["Long Put", "Short Put", "Short Call", "Long Call"]
-            ):
-                fig.add_trace(go.Scatter(
-                    x=[strike],
-                    y=[0],
-                    mode="markers+text",
-                    text=[name],
-                    textposition="bottom center",
-                    marker=dict(size=10),
-                    name=name
-                ))
-            
-            # Update layout
-            fig.update_layout(
-                title="Iron Condor Structure",
-                xaxis_title="Stock Price",
-                yaxis_title="Profit/Loss ($)",
-                height=300,
-                margin=dict(l=0, r=0, t=40, b=0),
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
             
             quantity = st.number_input("Quantity (# of iron condors)", min_value=1, value=1)
             
@@ -742,10 +899,14 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 short_call_strike=short_call_strike,
                 long_call_strike=long_call_strike,
                 expiration=expiry,
-                long_put_premium=long_put_premium,
-                short_put_premium=short_put_premium,
-                short_call_premium=short_call_premium,
-                long_call_premium=long_call_premium,
+                current_long_put_premium=long_put_market_premium,
+                current_short_put_premium=short_put_market_premium,
+                current_short_call_premium=short_call_market_premium,
+                current_long_call_premium=long_call_market_premium,
+                long_put_premium=long_put_entry_premium,
+                short_put_premium=short_put_entry_premium,
+                short_call_premium=short_call_entry_premium,
+                long_call_premium=long_call_entry_premium,
                 quantity=quantity,
                 long_put_iv=long_put_data.get('impliedVolatility', 0.3),
                 short_put_iv=short_put_data.get('impliedVolatility', 0.3),
@@ -813,11 +974,26 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                         
                         # Get option data
                         option_data = option_chain[option_chain['strike'] == strike].iloc[0]
-                        premium = option_data['lastPrice']
+                        market_premium = option_data['lastPrice']
                         iv = option_data.get('impliedVolatility', 0.3)
                         
+                        # Allow custom entry price
+                        use_custom_price = st.checkbox(f"Custom entry price for leg {i+1}")
+                        if use_custom_price:
+                            entry_premium = st.number_input(
+                                "Your entry price", 
+                                min_value=0.01, 
+                                max_value=None, 
+                                value=market_premium,
+                                step=0.01,
+                                format="%.2f",
+                                key=f"entry_{i}"
+                            )
+                        else:
+                            entry_premium = market_premium
+                        
                         # Display option information
-                        st.metric("Premium", f"${premium:.2f}")
+                        st.metric("Market Premium", f"${market_premium:.2f}")
                         st.caption(f"IV: {iv*100:.1f}%")
                         
                         leg = {
@@ -825,30 +1001,41 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                             'position': position.lower(),
                             'strike': strike,
                             'expiry': expiry,
-                            'price': premium,
+                            'price': entry_premium,
+                            'current_price': market_premium,
                             'quantity': quantity,
                             'iv': iv
                         }
                         
                         # Calculate cost effect
-                        leg_effect = premium * quantity * 100
+                        leg_effect = entry_premium * quantity * 100
                         if position == "Long":
                             total_cost += leg_effect
                         else:
                             total_cost -= leg_effect
                     else:  # Stock leg
-                        stock_price = st.number_input(
-                            "Stock Price", 
-                            value=current_price,
-                            step=0.01,
-                            format="%.2f",
-                            key=f"stock_price_{i}"
-                        )
+                        current_stock_price = current_price
+                        
+                        # Allow custom entry price for stock
+                        use_custom_stock = st.checkbox(f"Custom entry price for stock leg {i+1}")
+                        if use_custom_stock:
+                            stock_price = st.number_input(
+                                "Your purchase/sale price", 
+                                min_value=0.01,
+                                max_value=None,
+                                value=current_price,
+                                step=0.01,
+                                format="%.2f",
+                                key=f"stock_price_{i}"
+                            )
+                        else:
+                            stock_price = current_price
                         
                         leg = {
                             'type': 'stock',
                             'position': position.lower(),
                             'price': stock_price,
+                            'current_price': current_stock_price,
                             'quantity': quantity * 100  # 100 shares per contract
                         }
                         
@@ -872,89 +1059,6 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                  f"${abs(total_cost):.2f} {cost_type}", 
                  delta=f"{abs(total_cost)/current_price/100:.1f}% of stock price")
         
-        # Create visual summary of legs
-        fig = go.Figure()
-        
-        # Add horizontal line at y=0
-        fig.add_shape(
-            type="line",
-            x0=0,
-            x1=len(strategy_legs) + 1,
-            y0=0,
-            y1=0,
-            line=dict(color="black", width=1),
-        )
-        
-        # Add bars for each leg
-        for i, leg in enumerate(strategy_legs):
-            leg_type = leg.get('type')
-            position = leg.get('position')
-            quantity = leg.get('quantity', 1)
-            
-            # Determine color based on position and type
-            colors = {
-                ('long', 'call'): 'darkgreen',
-                ('short', 'call'): 'darkred',
-                ('long', 'put'): 'blue',
-                ('short', 'put'): 'purple',
-                ('long', 'stock'): 'orange',
-                ('short', 'stock'): 'brown'
-            }
-            color = colors.get((position, leg_type), 'gray')
-            
-            # Determine value/cost
-            if leg_type in ('call', 'put'):
-                value = leg.get('price', 0) * quantity * 100
-            else:  # stock
-                value = leg.get('price', current_price) * quantity
-                
-            # Adjust sign based on position
-            if position == 'short':
-                value = -value
-                
-            # Add bar
-            fig.add_trace(go.Bar(
-                x=[i+1],
-                y=[value],
-                name=f"{position.capitalize()} {leg_type.capitalize()}",
-                marker_color=color,
-                text=[f"${abs(value):.2f}"],
-                textposition="outside",
-            ))
-            
-            # Add leg information
-            if leg_type in ('call', 'put'):
-                fig.add_annotation(
-                    x=i+1,
-                    y=0,
-                    text=f"${leg.get('strike'):.2f}",
-                    showarrow=False,
-                    yshift=-30
-                )
-        
-        # Add net cost bar
-        fig.add_trace(go.Bar(
-            x=[len(strategy_legs) + 1],
-            y=[total_cost],
-            name=f"Net {cost_type}",
-            marker_color='gray',
-            text=[f"${abs(total_cost):.2f}"],
-            textposition="outside",
-        ))
-        
-        # Update layout
-        fig.update_layout(
-            title="Strategy Component Costs",
-            xaxis_title="Strategy Legs",
-            yaxis_title="Cost ($)",
-            legend=dict(x=0, y=1.1, orientation="h"),
-            barmode="group",
-            height=300,
-            margin=dict(l=0, r=0, t=40, b=0),
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
         return strategy_legs
 
 # Function to analyze and visualize strategy
@@ -968,7 +1072,8 @@ def analyze_strategy(strategy_legs, current_price, expiry_date, days_to_expiry):
         "📈 Payoff Diagram", 
         "📊 Risk Analysis", 
         "⏱️ Time Decay", 
-        "📱 Mobile View"
+        "📱 Mobile View",
+        "💼 Position Analysis"  # New tab
     ])
     
     with tabs[0]:  # Payoff Diagram
@@ -1686,6 +1791,140 @@ def analyze_strategy(strategy_legs, current_price, expiry_date, days_to_expiry):
             </div>
             """, unsafe_allow_html=True)
 
+    with tabs[4]:  # Position Analysis
+        st.subheader("Position Analysis")
+        
+        # Create position summary if we have both current prices and entry prices
+        if any('current_price' in leg for leg in strategy_legs):
+            # Create unrealized P/L table
+            pl_table = create_unrealized_pl_table(strategy_legs, current_price)
+            st.dataframe(pl_table, use_container_width=True)
+            
+            # Calculate total position metrics
+            total_entry_cost = sum([
+                leg.get('price', 0) * leg.get('quantity', 1) * 100 * (1 if leg.get('position') == 'long' else -1)
+                for leg in strategy_legs
+            ])
+            
+            total_current_value = sum([
+                leg.get('current_price', leg.get('price', 0)) * leg.get('quantity', 1) * 100 * 
+                (1 if leg.get('position') == 'long' else -1)
+                for leg in strategy_legs
+            ])
+            
+            unrealized_pl = total_current_value - total_entry_cost
+            
+            # Show position metrics
+            metric_cols = st.columns(3)
+            with metric_cols[0]:
+                st.metric(
+                    "Entry Cost", 
+                    f"${abs(total_entry_cost):.2f}",
+                    delta=None
+                )
+            
+            with metric_cols[1]:
+                st.metric(
+                    "Current Value", 
+                    f"${abs(total_current_value):.2f}",
+                    delta=None
+                )
+            
+            with metric_cols[2]:
+                st.metric(
+                    "Unrealized P/L", 
+                    f"${unrealized_pl:.2f}",
+                    delta=f"{(unrealized_pl/abs(total_entry_cost))*100:.1f}%" if total_entry_cost != 0 else None
+                )
+            
+            # Show what if analysis
+            st.subheader("What If Analysis")
+            
+            # What if we entered at current prices?
+            what_if_legs = [
+                {**leg, 'price': leg.get('current_price', leg.get('price', 0))}
+                for leg in strategy_legs
+            ]
+            
+            # Calculate payoff difference
+            current_price_range = np.linspace(current_price * 0.7, current_price * 1.3, 100)
+            
+            # Original position payoff
+            original_payoff = calculate_strategy_payoff(strategy_legs, [current_price])[0]
+            
+            # What if payoff (if entered at current prices)
+            what_if_payoff = calculate_strategy_payoff(what_if_legs, [current_price])[0]
+            
+            # Display comparison
+            st.write(f"If you had entered this position at current market prices:")
+            
+            what_if_cols = st.columns(2)
+            with what_if_cols[0]:
+                st.metric(
+                    "Current Position P/L at Expiration", 
+                    f"${original_payoff:.2f}",
+                    delta=None
+                )
+            
+            with what_if_cols[1]:
+                st.metric(
+                    "New Entry P/L at Expiration", 
+                    f"${what_if_payoff:.2f}",
+                    delta=f"{what_if_payoff - original_payoff:.2f}" 
+                )
+            
+            # Create comparison chart
+            fig = go.Figure()
+            
+            # Add original position payoff
+            original_payoffs = calculate_strategy_payoff(strategy_legs, current_price_range)
+            fig.add_trace(go.Scatter(
+                x=current_price_range, 
+                y=original_payoffs,
+                mode='lines',
+                name='Current Position',
+                line=dict(color='blue', width=2)
+            ))
+            
+            # Add what if payoff
+            what_if_payoffs = calculate_strategy_payoff(what_if_legs, current_price_range)
+            fig.add_trace(go.Scatter(
+                x=current_price_range, 
+                y=what_if_payoffs,
+                mode='lines',
+                name='If Entered Now',
+                line=dict(color='green', width=2, dash='dash')
+            ))
+            
+            # Add zero line
+            fig.add_shape(
+                type="line",
+                x0=min(current_price_range), x1=max(current_price_range),
+                y0=0, y1=0,
+                line=dict(color="black", width=1)
+            )
+            
+            # Add current price line
+            fig.add_shape(
+                type="line",
+                x0=current_price, x1=current_price,
+                y0=min(min(original_payoffs), min(what_if_payoffs)) * 1.1, 
+                y1=max(max(original_payoffs), max(what_if_payoffs)) * 1.1,
+                line=dict(color="red", width=1, dash="dash")
+            )
+            
+            # Update layout
+            fig.update_layout(
+                title="Position Comparison at Expiration",
+                xaxis_title="Stock Price",
+                yaxis_title="Profit/Loss ($)",
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No position analysis available. Use custom entry prices to analyze your actual position.")
+
 # Helper functions
 def calculate_strategy_volatility(strategy_legs):
     """Calculate average implied volatility from strategy legs."""
@@ -1887,9 +2126,8 @@ if __name__ == "__main__":
                     padding: 15px;
                     margin-bottom: 15px;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                }
-                
-                .mobile-header {
+                        
+                }.mobile-header {
                     font-size: 1.2rem;
                     font-weight: 600;
                     color: #1E88E5;
