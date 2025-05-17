@@ -129,7 +129,7 @@ def create_cash_secured_put(strike: float, expiration: str, premium: float, quan
         'cash_secured': True  # Flag as cash secured for analysis
     }] * quantity
 
-def create_naked_call(strike: float, expiration: str, premium: float, quantity: int = 1, iv: float = a0.3) -> List[Dict[str, Any]]:
+def create_naked_call(strike: float, expiration: str, premium: float, quantity: int = 1, iv: float = 0.3) -> List[Dict[str, Any]]:
     """Create a naked call strategy (short call without stock)."""
     return [{
         'type': 'call',

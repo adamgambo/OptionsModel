@@ -45,6 +45,9 @@ def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
     Returns:
     list: Payoff values for each price in price_range
     """
+    # Convert price_range to numpy array if it's not already
+    price_range = np.array(price_range)
+    
     payoffs = np.zeros(len(price_range))
     
     for leg in strategy_legs:

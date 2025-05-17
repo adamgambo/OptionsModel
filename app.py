@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from scipy.stats import norm
 import time
 import os
 import logging
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Import custom modules
 from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
-from strategies.strategy_factory import create_strategy
+from strategies.strategies_factory import create_strategy
 from pricing import calculate_implied_volatility, calculate_greeks
 from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price
 
@@ -43,6 +44,7 @@ if 'theme' not in st.session_state:
 # Theme toggle in the sidebar
 with st.sidebar:
     # Add logo and app title with better styling
+   if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=100)
     st.title("Options Strategy Calculator")
     
