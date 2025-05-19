@@ -289,6 +289,7 @@ def configure_strategy(ticker, current_price, expirations):
 # Function to show strategy information
 def show_strategy_info(category, strategy_type):
     """Display information about the selected options strategy."""
+    # Basic Strategies
     if category == "Basic Strategies":
         if strategy_type == "Long Call":
             st.markdown("""
@@ -345,6 +346,7 @@ def show_strategy_info(category, strategy_type):
             - **When to Use**: Bullish, similar to Cash Secured Put but with margin
             """)
     
+    # Spread Strategies
     elif category == "Spread Strategies":
         if strategy_type == "Bull Call Spread":
             st.markdown("""
@@ -410,6 +412,7 @@ def show_strategy_info(category, strategy_type):
             - **When to Use**: Expecting a large move in one direction
             """)
     
+    # Advanced Strategies
     elif category == "Advanced Strategies":
         if strategy_type == "Iron Condor":
             st.markdown("""
@@ -431,7 +434,7 @@ def show_strategy_info(category, strategy_type):
             """)
         elif strategy_type == "Straddle":
             st.markdown("""
-            **Straddle**: Buy a call and a put at the same strike price and expiration.
+            **Straddle**: Buy a call and a put at the same strike and expiration.
             
             - **Max Loss**: Limited to the total premium paid
             - **Max Gain**: Unlimited (stock moves far in either direction)
@@ -466,6 +469,7 @@ def show_strategy_info(category, strategy_type):
             - **When to Use**: Exploiting term structure of volatility, reducing cost of long options
             """)
     
+    # Custom Strategies
     elif category == "Custom Strategies":
         st.markdown("""
         **Custom Strategy**: Build your own multi-leg strategy with complete flexibility.
