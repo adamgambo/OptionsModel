@@ -7,14 +7,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def long_call_strategy(strike, expiration, premium=0.0, current_premium=None, quantity=1, iv=0.3):
+def long_call_strategy(strike, expiration, entry_premium=0.0, current_premium=None, quantity=1, iv=0.3):
     """
     Long Call Strategy: Purchase a call option, profit from price increase.
     
     Parameters:
         strike (float): Strike price of the call option
         expiration (str): Expiration date in YYYY-MM-DD format
-        premium (float): Entry premium paid for the option
+        entry_premium (float): Entry premium paid for the option
         current_premium (float): Current market premium of the option
         quantity (int): Number of contracts
         iv (float): Implied volatility
@@ -22,30 +22,30 @@ def long_call_strategy(strike, expiration, premium=0.0, current_premium=None, qu
     Returns:
         list: List of strategy leg dictionaries
     """
-    # Use current_premium as premium if not provided separately
+    # Use current_premium as entry_premium if not provided separately
     if current_premium is None:
-        current_premium = premium
+        current_premium = entry_premium
         
     return [{
         'type': 'call',
         'position': 'long',
         'strike': strike,
         'expiry': str(expiration),
-        'price': premium,
+        'price': entry_premium,
         'current_price': current_premium,
         'quantity': quantity,
         'iv': iv
     }]
 
 
-def long_put_strategy(strike, expiration, premium=0.0, current_premium=None, quantity=1, iv=0.3):
+def long_put_strategy(strike, expiration, entry_premium=0.0, current_premium=None, quantity=1, iv=0.3):
     """
     Long Put Strategy: Purchase a put option, profit from price decrease.
     
     Parameters:
         strike (float): Strike price of the put option
         expiration (str): Expiration date in YYYY-MM-DD format
-        premium (float): Entry premium paid for the option
+        entry_premium (float): Entry premium paid for the option
         current_premium (float): Current market premium of the option
         quantity (int): Number of contracts
         iv (float): Implied volatility
@@ -53,16 +53,16 @@ def long_put_strategy(strike, expiration, premium=0.0, current_premium=None, qua
     Returns:
         list: List of strategy leg dictionaries
     """
-    # Use current_premium as premium if not provided separately
+    # Use current_premium as entry_premium if not provided separately
     if current_premium is None:
-        current_premium = premium
+        current_premium = entry_premium
         
     return [{
         'type': 'put',
         'position': 'long',
         'strike': strike,
         'expiry': str(expiration),
-        'price': premium,
+        'price': entry_premium,
         'current_price': current_premium,
         'quantity': quantity,
         'iv': iv
@@ -117,7 +117,7 @@ def covered_call_strategy(stock_price, current_stock_price=None, call_strike=Non
     ]
 
 
-def cash_secured_put_strategy(strike, expiration, premium=0.0, current_premium=None, quantity=1, iv=0.3):
+def cash_secured_put_strategy(strike, expiration, entry_premium=0.0, current_premium=None, quantity=1, iv=0.3):
     """
     Cash Secured Put Strategy: Sell a put option and set aside cash to purchase shares if assigned.
     Generate income and potentially buy stock at a lower price.
@@ -125,7 +125,7 @@ def cash_secured_put_strategy(strike, expiration, premium=0.0, current_premium=N
     Parameters:
         strike (float): Strike price of the put option
         expiration (str): Expiration date in YYYY-MM-DD format
-        premium (float): Entry premium received for selling the put
+        entry_premium (float): Entry premium received for selling the put
         current_premium (float): Current market premium of the put
         quantity (int): Number of contracts
         iv (float): Implied volatility
@@ -133,16 +133,16 @@ def cash_secured_put_strategy(strike, expiration, premium=0.0, current_premium=N
     Returns:
         list: List of strategy leg dictionaries
     """
-    # Use premium as current_premium if not provided separately
+    # Use entry_premium as current_premium if not provided separately
     if current_premium is None:
-        current_premium = premium
+        current_premium = entry_premium
         
     return [{
         'type': 'put',
         'position': 'short',
         'strike': strike,
         'expiry': str(expiration),
-        'price': premium,
+        'price': entry_premium,
         'current_price': current_premium,
         'quantity': quantity,
         'iv': iv,
@@ -150,7 +150,7 @@ def cash_secured_put_strategy(strike, expiration, premium=0.0, current_premium=N
     }]
 
 
-def naked_call_strategy(strike, expiration, premium=0.0, current_premium=None, quantity=1, iv=0.3):
+def naked_call_strategy(strike, expiration, entry_premium=0.0, current_premium=None, quantity=1, iv=0.3):
     """
     Naked Call Strategy: Sell a call option without owning the underlying stock.
     High risk strategy with unlimited potential loss.
@@ -158,7 +158,7 @@ def naked_call_strategy(strike, expiration, premium=0.0, current_premium=None, q
     Parameters:
         strike (float): Strike price of the call option
         expiration (str): Expiration date in YYYY-MM-DD format
-        premium (float): Entry premium received for selling the call
+        entry_premium (float): Entry premium received for selling the call
         current_premium (float): Current market premium of the call
         quantity (int): Number of contracts
         iv (float): Implied volatility
@@ -166,30 +166,30 @@ def naked_call_strategy(strike, expiration, premium=0.0, current_premium=None, q
     Returns:
         list: List of strategy leg dictionaries
     """
-    # Use premium as current_premium if not provided separately
+    # Use entry_premium as current_premium if not provided separately
     if current_premium is None:
-        current_premium = premium
+        current_premium = entry_premium
         
     return [{
         'type': 'call',
         'position': 'short',
         'strike': strike,
         'expiry': str(expiration),
-        'price': premium,
+        'price': entry_premium,
         'current_price': current_premium,
         'quantity': quantity,
         'iv': iv
     }]
 
 
-def naked_put_strategy(strike, expiration, premium=0.0, current_premium=None, quantity=1, iv=0.3):
+def naked_put_strategy(strike, expiration, entry_premium=0.0, current_premium=None, quantity=1, iv=0.3):
     """
     Naked Put Strategy: Sell a put option without setting aside cash to buy the stock.
     
     Parameters:
         strike (float): Strike price of the put option
         expiration (str): Expiration date in YYYY-MM-DD format
-        premium (float): Entry premium received for selling the put
+        entry_premium (float): Entry premium received for selling the put
         current_premium (float): Current market premium of the put
         quantity (int): Number of contracts
         iv (float): Implied volatility
@@ -197,16 +197,16 @@ def naked_put_strategy(strike, expiration, premium=0.0, current_premium=None, qu
     Returns:
         list: List of strategy leg dictionaries
     """
-    # Use premium as current_premium if not provided separately
+    # Use entry_premium as current_premium if not provided separately
     if current_premium is None:
-        current_premium = premium
+        current_premium = entry_premium
         
     return [{
         'type': 'put',
         'position': 'short',
         'strike': strike,
         'expiry': str(expiration),
-        'price': premium,
+        'price': entry_premium,
         'current_price': current_premium,
         'quantity': quantity,
         'iv': iv,

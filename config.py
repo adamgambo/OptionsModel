@@ -152,7 +152,7 @@ STRATEGY_NAME_TO_TYPE = {
     "Custom - 4 Legs": "custom"
 }
 
-# Help text for strategy information
+# Help text for strategy information - Updated to ensure all strategies have descriptions
 STRATEGY_INFO = {
     "Long Call": """
         **Long Call**: Buy a call option to profit from a rise in the stock price.
@@ -244,8 +244,35 @@ STRATEGY_INFO = {
         - **When to Use**: Bearish to neutral, profit from time decay
         - **Example**: Sell XYZ $45 Call for $2.00, buy XYZ $50 Call for $1.00
     """,
+    "Calendar Spread": """
+        **Calendar Spread**: Sell a near-term option and buy a farther-term option at the same strike.
+        
+        - **Max Loss**: Limited to the net debit paid
+        - **Max Gain**: Varies based on underlying price at near-term expiration
+        - **Breakeven**: Varies, typically near the strike price at near-term expiration
+        - **When to Use**: Neutral, expecting little movement in the near term
+        - **Example**: Sell XYZ $50 Call expiring in 1 month for $1.50, buy XYZ $50 Call expiring in 3 months for $3.00
+    """,
+    "Poor Man's Covered Call": """
+        **Poor Man's Covered Call**: Buy a deep ITM long-term call and sell an OTM short-term call.
+        
+        - **Max Loss**: Limited to the net debit paid for the long call minus credit received
+        - **Max Gain**: Limited to (short call strike - long call strike) + (credit received - debit paid)
+        - **Breakeven**: Long call strike + net debit
+        - **When to Use**: Similar to covered call but requires less capital
+        - **Example**: Buy XYZ $40 Call expiring in 6 months for $12.00, sell XYZ $55 Call expiring in 1 month for $1.00
+    """,
+    "Ratio Back Spread": """
+        **Ratio Back Spread**: Sell 1 option at a lower strike and buy multiple options at a higher strike.
+        
+        - **Max Loss**: Occurs between the two strikes
+        - **Max Gain**: Potentially unlimited on the upside (for call ratio spreads)
+        - **Breakeven**: Complex, depends on ratio and premiums
+        - **When to Use**: Expecting a large move in one direction
+        - **Example**: Sell 1 XYZ $50 Call for $2.00, buy 2 XYZ $55 Calls for $1.00 each
+    """,
     "Iron Condor": """
-        **Iron Condor**: Combination of a bull put spread and a bear call spread.
+        **Iron Condor**: A combination of a bull put spread and a bear call spread.
         
         - **Max Loss**: Limited to (width of either spread - net credit)
         - **Max Gain**: Limited to the net credit received
@@ -255,8 +282,7 @@ STRATEGY_INFO = {
                        sell XYZ $55 Call for $2.00, buy XYZ $60 Call for $1.00
     """,
     "Butterfly": """
-        **Butterfly Spread**: Buy one lower strike option, sell two middle strike options, 
-        buy one higher strike option (all same type and expiration).
+        **Butterfly**: Buy one lower strike option, sell two middle strike options, buy one higher strike option.
         
         - **Max Loss**: Limited to the net debit paid
         - **Max Gain**: Limited to (middle strike - lower strike - net debit)
@@ -269,59 +295,47 @@ STRATEGY_INFO = {
         **Straddle**: Buy a call and a put at the same strike and expiration.
         
         - **Max Loss**: Limited to the total premium paid
-        - **Max Gain**: Unlimited (price moves far from strike in either direction)
+        - **Max Gain**: Unlimited (stock moves far in either direction)
         - **Breakeven**: Strike + total premium AND Strike - total premium
-        - **When to Use**: Expecting significant movement in either direction
+        - **When to Use**: Expecting significant movement but unsure of direction
         - **Example**: Buy XYZ $50 Call for $2.00 and XYZ $50 Put for $2.00
     """,
     "Strangle": """
         **Strangle**: Buy an OTM call and an OTM put with the same expiration.
         
         - **Max Loss**: Limited to the total premium paid
-        - **Max Gain**: Unlimited (price moves far from strikes in either direction)
+        - **Max Gain**: Unlimited (stock moves far in either direction)
         - **Breakeven**: Call strike + total premium AND Put strike - total premium
-        - **When to Use**: Expecting significant movement in either direction, cheaper than straddle
+        - **When to Use**: Expecting significant movement but unsure of direction, cheaper than a straddle
         - **Example**: Buy XYZ $55 Call for $1.00 and XYZ $45 Put for $1.00
     """,
     "Collar": """
         **Collar**: Own stock, buy a protective put, and sell a covered call.
         
-        - **Max Loss**: Limited to (stock price - put strike + put premium - call premium)
-        - **Max Gain**: Limited to (call strike - stock price + call premium - put premium)
+        - **Max Loss**: Limited to (stock price - put strike + net premium)
+        - **Max Gain**: Limited to (call strike - stock price - net premium)
+        - **Breakeven**: Stock price + net premium
         - **When to Use**: Protect a long stock position with limited cost
         - **Example**: Own XYZ at $50, buy XYZ $45 Put for $1.00, sell XYZ $55 Call for $1.00
     """,
     "Diagonal Spread": """
-        **Diagonal Spread**: Buy a longer-term option at one strike, sell a shorter-term option at a different strike.
+        **Diagonal Spread**: Buy a longer-term option at one strike and sell a shorter-term option at a different strike.
         
         - **Max Loss**: Limited to the net debit paid
-        - **Max Gain**: Varies based on price movements
-        - **When to Use**: Exploit term structure of volatility, reduce cost of long options
+        - **Max Gain**: Varies based on underlying price movements
+        - **Breakeven**: Complex, depends on stock price at near-term expiration
+        - **When to Use**: Exploiting term structure of volatility, reducing cost of long options
         - **Example**: Buy XYZ $50 Call expiring in 3 months for $3.00, sell XYZ $55 Call expiring in 1 month for $1.00
     """,
-    "Calendar Spread": """
-        **Calendar Spread**: Sell a near-term option and buy a farther-term option at the same strike.
+    "Double Diagonal Spread": """
+        **Double Diagonal Spread**: Combines a put diagonal spread and a call diagonal spread.
         
         - **Max Loss**: Limited to the net debit paid
-        - **Max Gain**: Varies based on underlying price at near-term expiration
-        - **When to Use**: Neutral, expecting little movement in the near term
-        - **Example**: Sell XYZ $50 Call expiring in 1 month for $1.50, buy XYZ $50 Call expiring in 3 months for $3.00
-    """,
-    "Poor Man's Covered Call": """
-        **Poor Man's Covered Call**: Buy a deep ITM long-term call and sell an OTM short-term call.
-        
-        - **Max Loss**: Limited to the net debit paid for the long call minus credit received
-        - **Max Gain**: Limited to (short call strike - long call strike) + (credit received - debit paid)
-        - **When to Use**: Similar to covered call but requires less capital
-        - **Example**: Buy XYZ $40 Call expiring in 6 months for $12.00, sell XYZ $55 Call expiring in 1 month for $1.00
-    """,
-    "Ratio Back Spread": """
-        **Ratio Back Spread**: Sell 1 option at a lower strike and buy multiple options at a higher strike.
-        
-        - **Max Loss**: Occurs between the two strikes
-        - **Max Gain**: Potentially unlimited on the upside (for call ratio spreads)
-        - **When to Use**: Expecting a large move in one direction
-        - **Example**: Sell 1 XYZ $50 Call for $2.00, buy 2 XYZ $55 Calls for $1.00 each
+        - **Max Gain**: Varies based on the underlying price at near-term expiration
+        - **Breakeven**: Complex, multiple break-even points
+        - **When to Use**: Neutral with expectation of increased volatility
+        - **Example**: Buy XYZ $45 Put expiring in 3 months, sell XYZ $50 Put expiring in 1 month,
+                      sell XYZ $55 Call expiring in 1 month, buy XYZ $60 Call expiring in 3 months
     """,
     "Custom - 2 Legs": """
         **Custom 2-Leg Strategy**: Build your own strategy with 2 legs.
@@ -329,6 +343,7 @@ STRATEGY_INFO = {
         - Configure each leg with option type, position (long/short), strike, quantity, and more
         - Mix and match calls, puts, and stock positions
         - Analyze complex or non-standard strategies
+        - Create strategies with multiple expirations
     """,
     "Custom - 3 Legs": """
         **Custom 3-Leg Strategy**: Build your own strategy with 3 legs.
@@ -336,6 +351,7 @@ STRATEGY_INFO = {
         - Configure each leg with option type, position (long/short), strike, quantity, and more
         - Mix and match calls, puts, and stock positions
         - Analyze complex or non-standard strategies
+        - Create strategies with multiple expirations
     """,
     "Custom - 4 Legs": """
         **Custom 4-Leg Strategy**: Build your own strategy with 4 legs.
@@ -343,6 +359,7 @@ STRATEGY_INFO = {
         - Configure each leg with option type, position (long/short), strike, quantity, and more
         - Mix and match calls, puts, and stock positions
         - Analyze complex or non-standard strategies
+        - Create strategies with multiple expirations
     """
 }
 
