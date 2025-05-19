@@ -1723,6 +1723,8 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
 
         elif strategy_type == "Calendar Spread":
             # Get available expirations
+            selected_expiry = st.session_state.get("selected_expiry")
+            expirations = st.session_state.get("expirations")
             near_expiry = selected_expiry
             far_expirations = [exp for exp in expirations if exp > near_expiry]
             
