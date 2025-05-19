@@ -152,140 +152,6 @@ def handle_ticker_selection():
                 
     return None, None, []
 
-# Function to configure strategy
-def configure_strategy(ticker, current_price, expirations):
-    with st.sidebar:
-        st.header("Strategy Selection")
-        
-        # Strategy category selection
-        strategy_category = st.selectbox("Category", [
-            "Basic Strategies",
-            "Spread Strategies", 
-            "Advanced Strategies",
-            "Custom Strategies"
-        ])
-        
-        # Strategy type based on category
-        if strategy_category == "Basic Strategies":
-            strategy_type = st.selectbox("Strategy", [
-                "Long Call",
-                "Long Put",
-                "Covered Call",
-                "Cash Secured Put",
-                "Naked Call",
-                "Naked Put"
-            ])
-        elif strategy_category == "Spread Strategies":
-            strategy_type = st.selectbox("Strategy", [
-                "Bull Call Spread",
-                "Bear Put Spread",
-                "Bull Put Credit Spread",
-                "Bear Call Credit Spread",
-                "Calendar Spread",
-                "Poor Man's Covered Call",
-                "Ratio Back Spread"
-            ])
-        elif strategy_category == "Advanced Strategies":
-            strategy_type = st.selectbox("Strategy", [
-                "Iron Condor",
-                "Butterfly",
-                "Straddle", 
-                "Strangle",
-                "Collar",
-                "Diagonal Spread"
-            ])
-        else:  # Custom Strategies
-            strategy_type = st.selectbox("Strategy", [
-                "Custom - 2 Legs",
-                "Custom - 3 Legs",
-                "Custom - 4 Legs"
-            ])
-        
-        # Strategy information
-        with st.expander("Strategy Information"):
-            show_strategy_info(strategy_category, strategy_type)
-        
-        # Common configuration - expiration selection
-        st.header("Strategy Configuration")
-        selected_expiry = st.selectbox("Expiration Date", expirations)
-        
-        # Calculate days to expiration
-        expiry_date = datetime.strptime(selected_expiry, "%Y-%m-%d").date()
-        today = datetime.now().date()
-        days_to_expiry = (expiry_date - today).days
-        
-        # Display time to expiration with progress bar
-        if days_to_expiry <= 0:
-            st.warning("Options expire today!")
-        else:
-            time_left_pct = min(1.0, days_to_expiry / 365)  # Cap at 1 year for visual
-            st.progress(time_left_pct)
-            if days_to_expiry < 7:
-                st.warning(f"{days_to_expiry} days to expiration (short-term)")
-            elif days_to_expiry < 30:
-                st.info(f"{days_to_expiry} days to expiration")
-            elif days_to_expiry < 90:
-                st.success(f"{days_to_expiry} days to expiration (medium-term)")
-            else:
-                st.success(f"{days_to_expiry} days to expiration (long-term)")
-        
-        # Load option chain with better error handling
-        try:
-            with st.spinner("Loading option chain..."):
-                calls, puts = get_option_chain(ticker, selected_expiry)
-                
-                # Convert to DataFrame for easier handling
-                calls_df = pd.DataFrame(calls)
-                puts_df = pd.DataFrame(puts)
-                
-                # Enhance option chain with IV calculations if missing
-                if 'impliedVolatility' not in calls_df.columns:
-                    calls_df['impliedVolatility'] = calls_df.apply(
-                        lambda row: calculate_implied_volatility(
-                            'call', current_price, row['strike'], days_to_expiry/365, 
-                            0.03, row['lastPrice']
-                        ), axis=1
-                    )
-                
-                if 'impliedVolatility' not in puts_df.columns:
-                    puts_df['impliedVolatility'] = puts_df.apply(
-                        lambda row: calculate_implied_volatility(
-                            'put', current_price, row['strike'], days_to_expiry/365, 
-                            0.03, row['lastPrice']
-                        ), axis=1
-                    )
-                
-                # Show option chains in expandable section
-                with st.expander("View Option Chain Data"):
-                    tab1, tab2 = st.tabs(["Calls", "Puts"])
-                    
-                    with tab1:
-                        display_df = calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
-                        display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
-                        display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
-                        st.dataframe(display_df, use_container_width=True)
-                    
-                    with tab2:
-                        display_df = puts_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
-                        display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
-                        display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
-                        st.dataframe(display_df, use_container_width=True)
-                
-                # Strategy-specific configuration based on type
-                strategy_legs = configure_specific_strategy(
-                    strategy_category, strategy_type, ticker, current_price, 
-                    selected_expiry, days_to_expiry, calls_df, puts_df
-                )
-                
-                return strategy_legs, selected_expiry, days_to_expiry
-                
-        except Exception as e:
-            st.error(f"Error loading option chain: {str(e)}")
-            logger.error(f"Error loading option chain: {str(e)}")
-            return None, None, None
-    
-    return None, None, None
-
 # Function to show strategy information
 def show_strategy_info(category, strategy_type):
     """Display information about the selected options strategy."""
@@ -479,6 +345,140 @@ def show_strategy_info(category, strategy_type):
         - Analyze complex or non-standard strategies
         - Create strategies with multiple expirations
         """)
+
+# Function to configure strategy
+def configure_strategy(ticker, current_price, expirations):
+    with st.sidebar:
+        st.header("Strategy Selection")
+        
+        # Strategy category selection
+        strategy_category = st.selectbox("Category", [
+            "Basic Strategies",
+            "Spread Strategies", 
+            "Advanced Strategies",
+            "Custom Strategies"
+        ])
+        
+        # Strategy type based on category
+        if strategy_category == "Basic Strategies":
+            strategy_type = st.selectbox("Strategy", [
+                "Long Call",
+                "Long Put",
+                "Covered Call",
+                "Cash Secured Put",
+                "Naked Call",
+                "Naked Put"
+            ])
+        elif strategy_category == "Spread Strategies":
+            strategy_type = st.selectbox("Strategy", [
+                "Bull Call Spread",
+                "Bear Put Spread",
+                "Bull Put Credit Spread",
+                "Bear Call Credit Spread",
+                "Calendar Spread",
+                "Poor Man's Covered Call",
+                "Ratio Back Spread"
+            ])
+        elif strategy_category == "Advanced Strategies":
+            strategy_type = st.selectbox("Strategy", [
+                "Iron Condor",
+                "Butterfly",
+                "Straddle", 
+                "Strangle",
+                "Collar",
+                "Diagonal Spread"
+            ])
+        else:  # Custom Strategies
+            strategy_type = st.selectbox("Strategy", [
+                "Custom - 2 Legs",
+                "Custom - 3 Legs",
+                "Custom - 4 Legs"
+            ])
+        
+        # Strategy information
+        with st.expander("Strategy Information"):
+            show_strategy_info(strategy_category, strategy_type)
+        
+        # Common configuration - expiration selection
+        st.header("Strategy Configuration")
+        selected_expiry = st.selectbox("Expiration Date", expirations)
+        
+        # Calculate days to expiration
+        expiry_date = datetime.strptime(selected_expiry, "%Y-%m-%d").date()
+        today = datetime.now().date()
+        days_to_expiry = (expiry_date - today).days
+        
+        # Display time to expiration with progress bar
+        if days_to_expiry <= 0:
+            st.warning("Options expire today!")
+        else:
+            time_left_pct = min(1.0, days_to_expiry / 365)  # Cap at 1 year for visual
+            st.progress(time_left_pct)
+            if days_to_expiry < 7:
+                st.warning(f"{days_to_expiry} days to expiration (short-term)")
+            elif days_to_expiry < 30:
+                st.info(f"{days_to_expiry} days to expiration")
+            elif days_to_expiry < 90:
+                st.success(f"{days_to_expiry} days to expiration (medium-term)")
+            else:
+                st.success(f"{days_to_expiry} days to expiration (long-term)")
+        
+        # Load option chain with better error handling
+        try:
+            with st.spinner("Loading option chain..."):
+                calls, puts = get_option_chain(ticker, selected_expiry)
+                
+                # Convert to DataFrame for easier handling
+                calls_df = pd.DataFrame(calls)
+                puts_df = pd.DataFrame(puts)
+                
+                # Enhance option chain with IV calculations if missing
+                if 'impliedVolatility' not in calls_df.columns:
+                    calls_df['impliedVolatility'] = calls_df.apply(
+                        lambda row: calculate_implied_volatility(
+                            'call', current_price, row['strike'], days_to_expiry/365, 
+                            0.03, row['lastPrice']
+                        ), axis=1
+                    )
+                
+                if 'impliedVolatility' not in puts_df.columns:
+                    puts_df['impliedVolatility'] = puts_df.apply(
+                        lambda row: calculate_implied_volatility(
+                            'put', current_price, row['strike'], days_to_expiry/365, 
+                            0.03, row['lastPrice']
+                        ), axis=1
+                    )
+                
+                # Show option chains in expandable section
+                with st.expander("View Option Chain Data"):
+                    tab1, tab2 = st.tabs(["Calls", "Puts"])
+                    
+                    with tab1:
+                        display_df = calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
+                        display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
+                        display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
+                        st.dataframe(display_df, use_container_width=True)
+                    
+                    with tab2:
+                        display_df = puts_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
+                        display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
+                        display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
+                        st.dataframe(display_df, use_container_width=True)
+                
+                # Strategy-specific configuration based on type
+                strategy_legs = configure_specific_strategy(
+                    strategy_category, strategy_type, ticker, current_price, 
+                    selected_expiry, days_to_expiry, calls_df, puts_df
+                )
+                
+                return strategy_legs, selected_expiry, days_to_expiry
+                
+        except Exception as e:
+            st.error(f"Error loading option chain: {str(e)}")
+            logger.error(f"Error loading option chain: {str(e)}")
+            return None, None, None
+    
+    return None, None, None
 
 # Function to configure specific strategy
 def configure_specific_strategy(category, strategy_type, ticker, current_price, 
@@ -1115,7 +1115,11 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     short_iv=short_option.get('impliedVolatility', 0.3)
                 )
         
-        elif strategy_type == "Iron Condor":
+        # Implementation for other strategies...
+        # (Iron Condor, Bear Put Spread, etc.)
+    
+    elif category == "Advanced Strategies":
+        if strategy_type == "Iron Condor":
             # Implement Iron Condor with interactive strike selection
             st.subheader("Bull Put Spread (Lower Strikes)")
             
@@ -1315,1799 +1319,6 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 short_call_iv=short_call_data.get('impliedVolatility', 0.3),
                 long_call_iv=long_call_data.get('impliedVolatility', 0.3)
             )
-        
-        elif strategy_type == "Bear Put Spread":
-            available_strikes = sorted(puts_df['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Two-column layout for strike selection
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Long Put (Higher Strike)")
-                # Long put (higher strike)
-                long_strike_index = st.select_slider(
-                    "Long Put Strike",
-                    options=range(len(available_strikes)),
-                    value=min(len(available_strikes)-1, atm_index+2),
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                long_strike = available_strikes[long_strike_index]
-                long_option = puts_df[puts_df['strike'] == long_strike].iloc[0]
-                long_market_premium = long_option['lastPrice']
-                
-                # Custom entry price for long leg
-                use_custom_long_price = st.checkbox("I purchased this put at a different price")
-                if use_custom_long_price:
-                    long_entry_premium = st.number_input(
-                        "Your purchase price (long put)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=long_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="long_entry"
-                    )
-                else:
-                    long_entry_premium = long_market_premium
-                
-                st.metric("Current Market Premium", f"${long_market_premium:.2f}")
-                st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader("Short Put (Lower Strike)")
-                # Filter available strikes to ensure short strike < long strike
-                short_options = range(long_strike_index)
-                if short_options:
-                    short_strike_index = st.select_slider(
-                        "Short Put Strike",
-                        options=short_options,
-                        value=max(0, atm_index-1),
-                        format_func=lambda i: f"${available_strikes[i]:.2f}"
-                    )
-                    short_strike = available_strikes[short_strike_index]
-                    short_option = puts_df[puts_df['strike'] == short_strike].iloc[0]
-                    short_market_premium = short_option['lastPrice']
-                    
-                    # Custom entry price for short leg
-                    use_custom_short_price = st.checkbox("I sold this put at a different price")
-                    if use_custom_short_price:
-                        short_entry_premium = st.number_input(
-                            "Your sale price (short put)", 
-                            min_value=0.01, 
-                            max_value=None, 
-                            value=short_market_premium,
-                            step=0.01,
-                            format="%.2f",
-                            key="short_entry"
-                        )
-                    else:
-                        short_entry_premium = short_market_premium
-                    
-                    st.metric("Current Market Premium", f"${short_market_premium:.2f}")
-                    st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                else:
-                    st.error("No lower strikes available for the short put leg")
-                    short_strike = None
-                    short_market_premium = 0
-                    short_entry_premium = 0
-                    short_option = None
-            
-            if short_strike is not None and long_strike > short_strike:
-                # Calculate and display spread metrics
-                entry_net_debit = long_entry_premium - short_entry_premium
-                current_net_debit = long_market_premium - short_market_premium
-                spread_width = long_strike - short_strike
-                max_profit = (spread_width - entry_net_debit) * 100
-                max_loss = entry_net_debit * 100
-                
-                # Calculate unrealized P/L
-                unrealized_pl = (current_net_debit - entry_net_debit) * 100  # Per spread
-                
-                metrics_cols = st.columns(4)
-                with metrics_cols[0]:
-                    st.metric("Entry Net Debit", f"${entry_net_debit:.2f}")
-                    st.caption(f"Current: ${current_net_debit:.2f}")
-                
-                with metrics_cols[1]:
-                    st.metric("Spread Width", f"${spread_width:.2f}")
-                
-                with metrics_cols[2]:
-                    st.metric("Max Profit", f"${max_profit:.2f}")
-                
-                with metrics_cols[3]:
-                    if max_loss > 0:
-                        risk_reward = max_profit / max_loss
-                        st.metric("Risk/Reward", f"1:{risk_reward:.2f}")
-                    else:
-                        st.metric("Risk/Reward", "No Risk")
-                
-                # Display unrealized P/L
-                st.metric(
-                    "Unrealized P/L", 
-                    f"${-unrealized_pl:.2f}",  # Negative because debit increased = loss
-                    delta=f"{(-unrealized_pl/max_loss)*100:.1f}%" if max_loss > 0 else None
-                )
-                
-                # Calculate breakeven
-                breakeven = long_strike - entry_net_debit
-                st.progress((breakeven - short_strike) / spread_width)
-                st.caption(f"Breakeven: ${breakeven:.2f} ({((breakeven/current_price)-1)*100:.1f}% from current price)")
-                
-                quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-                
-                return create_strategy(
-                    "bear_put_spread",
-                    long_strike=long_strike,
-                    short_strike=short_strike,
-                    expiration=expiry,
-                    current_long_premium=long_market_premium,
-                    current_short_premium=short_market_premium,
-                    long_premium=long_entry_premium,
-                    short_premium=short_entry_premium,
-                    quantity=quantity,
-                    long_iv=long_option.get('impliedVolatility', 0.3),
-                    short_iv=short_option.get('impliedVolatility', 0.3)
-                )
-
-        elif strategy_type == "Bull Put Credit Spread":
-            available_strikes = sorted(puts_df['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Two-column layout for strike selection
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Short Put (Higher Strike)")
-                # Short put (higher strike)
-                short_strike_index = st.select_slider(
-                    "Short Put Strike",
-                    options=range(len(available_strikes)),
-                    value=max(0, atm_index-1),
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                short_strike = available_strikes[short_strike_index]
-                short_option = puts_df[puts_df['strike'] == short_strike].iloc[0]
-                short_market_premium = short_option['lastPrice']
-                
-                # Custom entry price for short leg
-                use_custom_short_price = st.checkbox("I sold this put at a different price")
-                if use_custom_short_price:
-                    short_entry_premium = st.number_input(
-                        "Your sale price (short put)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=short_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="short_entry"
-                    )
-                else:
-                    short_entry_premium = short_market_premium
-                
-                st.metric("Current Market Premium", f"${short_market_premium:.2f}")
-                st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader("Long Put (Lower Strike)")
-                # Filter available strikes to ensure long strike < short strike
-                long_options = range(short_strike_index)
-                if long_options:
-                    long_strike_index = st.select_slider(
-                        "Long Put Strike",
-                        options=long_options,
-                        value=max(0, min(short_strike_index-3, long_options[-1])),
-                        format_func=lambda i: f"${available_strikes[i]:.2f}"
-                    )
-                    long_strike = available_strikes[long_strike_index]
-                    long_option = puts_df[puts_df['strike'] == long_strike].iloc[0]
-                    long_market_premium = long_option['lastPrice']
-                    
-                    # Custom entry price for long leg
-                    use_custom_long_price = st.checkbox("I purchased this put at a different price")
-                    if use_custom_long_price:
-                        long_entry_premium = st.number_input(
-                            "Your purchase price (long put)", 
-                            min_value=0.01, 
-                            max_value=None, 
-                            value=long_market_premium,
-                            step=0.01,
-                            format="%.2f",
-                            key="long_entry"
-                        )
-                    else:
-                        long_entry_premium = long_market_premium
-                    
-                    st.metric("Current Market Premium", f"${long_market_premium:.2f}")
-                    st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                else:
-                    st.error("No lower strikes available for the long put leg")
-                    long_strike = None
-                    long_market_premium = 0
-                    long_entry_premium = 0
-                    long_option = None
-            
-            if long_strike is not None and short_strike > long_strike:
-                # Calculate and display spread metrics
-                entry_net_credit = short_entry_premium - long_entry_premium
-                current_net_credit = short_market_premium - long_market_premium
-                spread_width = short_strike - long_strike
-                max_profit = entry_net_credit * 100
-                max_loss = (spread_width - entry_net_credit) * 100
-                
-                # Calculate unrealized P/L
-                unrealized_pl = (entry_net_credit - current_net_credit) * 100  # Per spread
-                
-                metrics_cols = st.columns(4)
-                with metrics_cols[0]:
-                    st.metric("Entry Net Credit", f"${entry_net_credit:.2f}")
-                    st.caption(f"Current: ${current_net_credit:.2f}")
-                
-                with metrics_cols[1]:
-                    st.metric("Spread Width", f"${spread_width:.2f}")
-                
-                with metrics_cols[2]:
-                    st.metric("Max Profit", f"${max_profit:.2f}")
-                
-                with metrics_cols[3]:
-                    if max_loss > 0:
-                        risk_reward = max_profit / max_loss
-                        st.metric("Risk/Reward", f"{risk_reward:.2f}:1")
-                    else:
-                        st.metric("Risk/Reward", "No Risk")
-                
-                # Display unrealized P/L
-                st.metric(
-                    "Unrealized P/L", 
-                    f"${unrealized_pl:.2f}",
-                    delta=f"{(unrealized_pl/max_profit)*100:.1f}%" if max_profit > 0 else None
-                )
-                
-                # Calculate breakeven
-                breakeven = short_strike - entry_net_credit
-                st.progress((breakeven - long_strike) / spread_width)
-                st.caption(f"Breakeven: ${breakeven:.2f} ({((breakeven/current_price)-1)*100:.1f}% from current price)")
-                
-                quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-                
-                return create_strategy(
-                    "bull_put_spread",
-                    short_put_strike=short_strike,
-                    long_put_strike=long_strike,
-                    expiration=expiry,
-                    current_short_put_premium=short_market_premium,
-                    current_long_put_premium=long_market_premium,
-                    short_put_premium=short_entry_premium,
-                    long_put_premium=long_entry_premium,
-                    quantity=quantity,
-                    short_put_iv=short_option.get('impliedVolatility', 0.3),
-                    long_put_iv=long_option.get('impliedVolatility', 0.3)
-                )
-
-        elif strategy_type == "Bear Call Credit Spread":
-            available_strikes = sorted(calls_df['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Two-column layout for strike selection
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Short Call (Lower Strike)")
-                # Short call (lower strike)
-                short_strike_index = st.select_slider(
-                    "Short Call Strike",
-                    options=range(len(available_strikes)),
-                    value=min(len(available_strikes)-1, atm_index+1),
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                short_strike = available_strikes[short_strike_index]
-                short_option = calls_df[calls_df['strike'] == short_strike].iloc[0]
-                short_market_premium = short_option['lastPrice']
-                
-                # Custom entry price for short leg
-                use_custom_short_price = st.checkbox("I sold this call at a different price")
-                if use_custom_short_price:
-                    short_entry_premium = st.number_input(
-                        "Your sale price (short call)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=short_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="short_entry"
-                    )
-                else:
-                    short_entry_premium = short_market_premium
-                
-                st.metric("Current Market Premium", f"${short_market_premium:.2f}")
-                st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader("Long Call (Higher Strike)")
-                # Filter available strikes to ensure long strike > short strike
-                long_options = range(short_strike_index+1, len(available_strikes))
-                if long_options:
-                    long_strike_index = st.select_slider(
-                        "Long Call Strike",
-                        options=long_options,
-                        value=min(long_options[-1], short_strike_index+3),
-                        format_func=lambda i: f"${available_strikes[i]:.2f}"
-                    )
-                    long_strike = available_strikes[long_strike_index]
-                    long_option = calls_df[calls_df['strike'] == long_strike].iloc[0]
-                    long_market_premium = long_option['lastPrice']
-                    
-                    # Custom entry price for long leg
-                    use_custom_long_price = st.checkbox("I purchased this call at a different price")
-                    if use_custom_long_price:
-                        long_entry_premium = st.number_input(
-                            "Your purchase price (long call)", 
-                            min_value=0.01, 
-                            max_value=None, 
-                            value=long_market_premium,
-                            step=0.01,
-                            format="%.2f",
-                            key="long_entry"
-                        )
-                    else:
-                        long_entry_premium = long_market_premium
-                    
-                    st.metric("Current Market Premium", f"${long_market_premium:.2f}")
-                    st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                else:
-                    st.error("No higher strikes available for the long call leg")
-                    long_strike = None
-                    long_market_premium = 0
-                    long_entry_premium = 0
-                    long_option = None
-            
-            if long_strike is not None and long_strike > short_strike:
-                # Calculate and display spread metrics
-                entry_net_credit = short_entry_premium - long_entry_premium
-                current_net_credit = short_market_premium - long_market_premium
-                spread_width = long_strike - short_strike
-                max_profit = entry_net_credit * 100
-                max_loss = (spread_width - entry_net_credit) * 100
-                
-                # Calculate unrealized P/L
-                unrealized_pl = (entry_net_credit - current_net_credit) * 100  # Per spread
-                
-                metrics_cols = st.columns(4)
-                with metrics_cols[0]:
-                    st.metric("Entry Net Credit", f"${entry_net_credit:.2f}")
-                    st.caption(f"Current: ${current_net_credit:.2f}")
-                
-                with metrics_cols[1]:
-                    st.metric("Spread Width", f"${spread_width:.2f}")
-                
-                with metrics_cols[2]:
-                    st.metric("Max Profit", f"${max_profit:.2f}")
-                
-                with metrics_cols[3]:
-                    if max_loss > 0:
-                        risk_reward = max_profit / max_loss
-                        st.metric("Risk/Reward", f"{risk_reward:.2f}:1")
-                    else:
-                        st.metric("Risk/Reward", "No Risk")
-                
-                # Display unrealized P/L
-                st.metric(
-                    "Unrealized P/L", 
-                    f"${unrealized_pl:.2f}",
-                    delta=f"{(unrealized_pl/max_profit)*100:.1f}%" if max_profit > 0 else None
-                )
-                
-                # Calculate breakeven
-                breakeven = short_strike + entry_net_credit
-                st.progress((breakeven - short_strike) / spread_width)
-                st.caption(f"Breakeven: ${breakeven:.2f} ({((breakeven/current_price)-1)*100:.1f}% from current price)")
-                
-                quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-                
-                return create_strategy(
-                    "bear_call_spread",
-                    short_call_strike=short_strike,
-                    long_call_strike=long_strike,
-                    expiration=expiry,
-                    current_short_call_premium=short_market_premium,
-                    current_long_call_premium=long_market_premium,
-                    short_call_premium=short_entry_premium,
-                    long_call_premium=long_entry_premium,
-                    quantity=quantity,
-                    short_call_iv=short_option.get('impliedVolatility', 0.3),
-                    long_call_iv=long_option.get('impliedVolatility', 0.3)
-                )
-
-        elif strategy_type == "Calendar Spread":
-            # Get available expirations
-            selected_expiry = st.session_state.get("selected_expiry")
-            expirations = st.session_state.get("expirations")
-            near_expiry = selected_expiry
-            far_expirations = [exp for exp in expirations if exp > near_expiry]
-            
-            if not far_expirations:
-                st.error("No longer-dated expirations available for calendar spread")
-                return None
-            
-            # Option type selection
-            option_type = st.selectbox("Option Type", ["Call", "Put"])
-            
-            # Get appropriate chain
-            option_chain = calls_df if option_type == "Call" else puts_df
-            available_strikes = sorted(option_chain['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Strike selection - usually ATM for calendar spreads
-            selected_strike_index = st.select_slider(
-                "Strike Selection",
-                options=range(len(available_strikes)),
-                value=atm_index,
-                format_func=lambda i: f"${available_strikes[i]:.2f} ({'ITM' if (option_type == 'Call' and available_strikes[i] < current_price) or (option_type == 'Put' and available_strikes[i] > current_price) else 'OTM' if (option_type == 'Call' and available_strikes[i] > current_price) or (option_type == 'Put' and available_strikes[i] < current_price) else 'ATM'})"
-            )
-            selected_strike = available_strikes[selected_strike_index]
-            
-            # Far-month expiration selection
-            far_expiry = st.selectbox("Far-Month Expiration", far_expirations)
-            
-            # Get option data for near-term contract
-            near_option = option_chain[option_chain['strike'] == selected_strike].iloc[0]
-            near_market_premium = near_option['lastPrice']
-            
-            # Fetch far-term option data
-            try:
-                far_month_options, _ = get_option_chain(ticker, far_expiry) if option_type == "Call" else (_, get_option_chain(ticker, far_expiry)[1])
-                far_option = far_month_options[far_month_options['strike'] == selected_strike].iloc[0]
-                far_market_premium = far_option['lastPrice']
-            except Exception:
-                st.error(f"Could not fetch data for {option_type.lower()} option at strike ${selected_strike:.2f} for {far_expiry}")
-                return None
-            
-            # Two-column layout for pricing
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader(f"Short Near-Term {option_type} (Sell)")
-                
-                # Custom entry price for near leg
-                use_custom_near_price = st.checkbox(f"I sold this {option_type.lower()} at a different price")
-                if use_custom_near_price:
-                    near_entry_premium = st.number_input(
-                        "Your sale price (near term)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=near_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="near_entry"
-                    )
-                else:
-                    near_entry_premium = near_market_premium
-                
-                st.metric("Current Market Premium", f"${near_market_premium:.2f}")
-                st.caption(f"IV: {near_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to near-term expiry
-                near_expiry_date = datetime.strptime(near_expiry, "%Y-%m-%d").date()
-                today = datetime.now().date()
-                near_days_to_expiry = (near_expiry_date - today).days
-                st.caption(f"Days to Expiration: {near_days_to_expiry}")
-            
-            with col2:
-                st.subheader(f"Long Far-Term {option_type} (Buy)")
-                
-                # Custom entry price for far leg
-                use_custom_far_price = st.checkbox(f"I bought this {option_type.lower()} at a different price")
-                if use_custom_far_price:
-                    far_entry_premium = st.number_input(
-                        "Your purchase price (far term)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=far_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="far_entry"
-                    )
-                else:
-                    far_entry_premium = far_market_premium
-                
-                st.metric("Current Market Premium", f"${far_market_premium:.2f}")
-                st.caption(f"IV: {far_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to far-term expiry
-                far_expiry_date = datetime.strptime(far_expiry, "%Y-%m-%d").date()
-                far_days_to_expiry = (far_expiry_date - today).days
-                st.caption(f"Days to Expiration: {far_days_to_expiry}")
-            
-            # Calculate and display spread metrics
-            entry_net_debit = far_entry_premium - near_entry_premium
-            current_net_debit = far_market_premium - near_market_premium
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (current_net_debit - entry_net_debit) * 100  # Per spread
-            
-            metrics_cols = st.columns(3)
-            with metrics_cols[0]:
-                st.metric("Entry Net Debit", f"${entry_net_debit:.2f}")
-                st.caption(f"Current: ${current_net_debit:.2f}")
-            
-            with metrics_cols[1]:
-                # Calendar spreads profit if the stock is near the strike at near-term expiration
-                st.metric("Ideal Price at Near-Term Expiry", f"${selected_strike:.2f}")
-                st.caption(f"{((selected_strike/current_price)-1)*100:.1f}% from current price")
-            
-            with metrics_cols[2]:
-                # Show term structure of implied volatility
-                near_iv = near_option.get('impliedVolatility', 0.3)
-                far_iv = far_option.get('impliedVolatility', 0.3)
-                iv_diff = far_iv - near_iv
-                st.metric("IV Difference", f"{iv_diff*100:.1f}%", delta=f"{(iv_diff/near_iv)*100:.1f}%")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${-unrealized_pl:.2f}",  # Negative because debit increased = loss
-                delta=f"{(-unrealized_pl/(entry_net_debit*100))*100:.1f}%" if entry_net_debit > 0 else None
-            )
-            
-            # Note on calendar spreads
-            st.info("📝 Calendar spreads profit from time decay and/or increase in implied volatility. Maximum profit typically occurs when the stock price is at the strike price at near-term expiration.")
-            
-            quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-            
-            return create_strategy(
-                "calendar_spread",
-                strike=selected_strike,
-                near_expiration=near_expiry,
-                far_expiration=far_expiry,
-                current_near_premium=near_market_premium,
-                current_far_premium=far_market_premium,
-                near_premium=near_entry_premium,
-                far_premium=far_entry_premium,
-                option_type=option_type.lower(),
-                quantity=quantity,
-                near_iv=near_option.get('impliedVolatility', 0.3),
-                far_iv=far_option.get('impliedVolatility', 0.3)
-            )
-
-        elif strategy_type == "Poor Man's Covered Call":
-            # Get available expirations
-            near_expiry = selected_expiry
-            far_expirations = [exp for exp in expirations if exp > near_expiry]
-            
-            if not far_expirations:
-                st.error("No longer-dated expirations available for PMCC")
-                return None
-            
-            # Far-month expiration selection for LEAP
-            far_expiry = st.selectbox("LEAP Expiration (Long Call)", far_expirations)
-            
-            # Get option chains
-            available_strikes = sorted(calls_df['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                            key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Two-column layout for strike selection
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Long LEAP Call (Lower Strike)")
-                # Long call should be ITM (lower strike)
-                itm_strikes = [i for i in range(atm_index + 1) if i < len(available_strikes)]
-                if not itm_strikes:
-                    st.error("No ITM strikes available for long LEAP call")
-                    return None
-                
-                long_strike_index = st.select_slider(
-                    "Long Call Strike",
-                    options=itm_strikes,
-                    value=max(0, min(itm_strikes) + len(itm_strikes) // 3),  # Deeper ITM by default
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                long_strike = available_strikes[long_strike_index]
-                
-                # Fetch LEAP option data
-                try:
-                    far_calls, _ = get_option_chain(ticker, far_expiry)
-                    far_calls_df = pd.DataFrame(far_calls)
-                    long_option = far_calls_df[far_calls_df['strike'] == long_strike].iloc[0]
-                    long_market_premium = long_option['lastPrice']
-                except Exception:
-                    st.error(f"Could not fetch data for LEAP call at strike ${long_strike:.2f} for {far_expiry}")
-                    return None
-                
-                # Custom entry price for long leg
-                use_custom_long_price = st.checkbox("I purchased this LEAP call at a different price")
-                if use_custom_long_price:
-                    long_entry_premium = st.number_input(
-                        "Your purchase price (LEAP call)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=long_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="long_entry"
-                    )
-                else:
-                    long_entry_premium = long_market_premium
-                
-                st.metric("Current Market Premium", f"${long_market_premium:.2f}")
-                st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to LEAP expiry
-                far_expiry_date = datetime.strptime(far_expiry, "%Y-%m-%d").date()
-                today = datetime.now().date()
-                far_days_to_expiry = (far_expiry_date - today).days
-                st.caption(f"Days to Expiration: {far_days_to_expiry}")
-            
-            with col2:
-                st.subheader("Short Call (Higher Strike)")
-                # Short call should be OTM (higher strike)
-                otm_strikes = range(atm_index, len(available_strikes))
-                if not otm_strikes:
-                    st.error("No OTM strikes available for short call")
-                    return None
-                
-                short_strike_index = st.select_slider(
-                    "Short Call Strike",
-                    options=otm_strikes,
-                    value=min(len(available_strikes)-1, atm_index + 2),  # Slightly OTM by default
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                short_strike = available_strikes[short_strike_index]
-                
-                # Get option data for near-term contract
-                short_option = calls_df[calls_df['strike'] == short_strike].iloc[0]
-                short_market_premium = short_option['lastPrice']
-                
-                # Custom entry price for short leg
-                use_custom_short_price = st.checkbox("I sold this short call at a different price")
-                if use_custom_short_price:
-                    short_entry_premium = st.number_input(
-                        "Your sale price (short call)", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=short_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="short_entry"
-                    )
-                else:
-                    short_entry_premium = short_market_premium
-                
-                st.metric("Current Market Premium", f"${short_market_premium:.2f}")
-                st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to near-term expiry
-                near_expiry_date = datetime.strptime(near_expiry, "%Y-%m-%d").date()
-                near_days_to_expiry = (near_expiry_date - today).days
-                st.caption(f"Days to Expiration: {near_days_to_expiry}")
-            
-            # Calculate and display strategy metrics
-            entry_cost = long_entry_premium - short_entry_premium
-            current_cost = long_market_premium - short_market_premium
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (current_cost - entry_cost) * 100  # Per spread
-            
-            metrics_cols = st.columns(4)
-            with metrics_cols[0]:
-                st.metric("Net Initial Cost", f"${entry_cost:.2f}")
-                st.caption(f"Current: ${current_cost:.2f}")
-            
-            with metrics_cols[1]:
-                extrinsic_value = long_market_premium - (current_price - long_strike if current_price > long_strike else 0)
-                st.metric("LEAP Extrinsic Value", f"${extrinsic_value:.2f}")
-            
-            with metrics_cols[2]:
-                income = short_entry_premium * 100
-                st.metric("Short Call Income", f"${income:.2f}")
-                
-            with metrics_cols[3]:
-                max_profit = (short_strike - long_strike) + short_entry_premium - long_entry_premium
-                st.metric("Max Profit Per Spread", f"${max_profit*100:.2f}")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${-unrealized_pl:.2f}",
-                delta=f"{(-unrealized_pl/(entry_cost*100))*100:.1f}%" if entry_cost > 0 else None
-            )
-            
-            # PMCC notes
-            st.info("📝 The Poor Man's Covered Call is a diagonal spread that simulates a covered call with less capital. It uses a deep ITM long-dated call instead of owning the stock.")
-            
-            quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-            
-            return create_strategy(
-                "poor_mans_covered_call",
-                long_call_strike=long_strike,
-                short_call_strike=short_strike,
-                long_call_exp=far_expiry,
-                short_call_exp=near_expiry,
-                current_long_call_premium=long_market_premium,
-                current_short_call_premium=short_market_premium,
-                long_call_premium=long_entry_premium,
-                short_call_premium=short_entry_premium,
-                quantity=quantity,
-                long_call_iv=long_option.get('impliedVolatility', 0.3),
-                short_call_iv=short_option.get('impliedVolatility', 0.3)
-            )
-
-        elif strategy_type == "Ratio Back Spread":
-            # Option type selection
-            option_type = st.selectbox("Option Type", ["Call", "Put"])
-            
-            # Get appropriate chain
-            option_chain = calls_df if option_type == "Call" else puts_df
-            available_strikes = sorted(option_chain['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Ratio selection
-            ratio = st.selectbox("Ratio (Long:Short)", [2, 3, 4], index=0)
-            
-            # Two-column layout for strike selection
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader(f"Short 1 {option_type} (Lower Strike for Call, Higher for Put)")
-                
-                # Strike selection depends on option type
-                if option_type == "Call":
-                    # For calls, short the lower strike
-                    short_options = range(atm_index + 1)
-                    short_default = max(0, atm_index - 1)
-                else:
-                    # For puts, short the higher strike
-                    short_options = range(atm_index, len(available_strikes))
-                    short_default = min(len(available_strikes) - 1, atm_index + 1)
-                
-                if len(short_options) == 0:
-                    st.error(f"No appropriate strikes available for short {option_type.lower()}")
-                    return None
-                
-                short_strike_index = st.select_slider(
-                    f"Short {option_type} Strike",
-                    options=short_options,
-                    value=short_default,
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                short_strike = available_strikes[short_strike_index]
-                
-                # Get option data
-                short_option = option_chain[option_chain['strike'] == short_strike].iloc[0]
-                short_market_premium = short_option['lastPrice']
-                
-                # Custom entry price for short leg
-                use_custom_short_price = st.checkbox(f"I sold this {option_type.lower()} at a different price")
-                if use_custom_short_price:
-                    short_entry_premium = st.number_input(
-                        "Your sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=short_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="short_entry"
-                    )
-                else:
-                    short_entry_premium = short_market_premium
-                
-                st.metric("Current Market Premium", f"${short_market_premium:.2f}")
-                st.caption(f"IV: {short_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader(f"Long {ratio} {option_type}s (Higher Strike for Call, Lower for Put)")
-                
-                # Strike selection depends on option type
-                if option_type == "Call":
-                    # For calls, long the higher strike
-                    long_options = range(short_strike_index, len(available_strikes))
-                    long_default = min(len(available_strikes) - 1, short_strike_index + 2)
-                else:
-                    # For puts, long the lower strike
-                    long_options = range(short_strike_index + 1)
-                    long_default = max(0, short_strike_index - 2)
-                
-                if len(long_options) == 0:
-                    st.error(f"No appropriate strikes available for long {option_type.lower()}")
-                    return None
-                
-                long_strike_index = st.select_slider(
-                    f"Long {option_type} Strike",
-                    options=long_options,
-                    value=long_default,
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                long_strike = available_strikes[long_strike_index]
-                
-                # Get option data
-                long_option = option_chain[option_chain['strike'] == long_strike].iloc[0]
-                long_market_premium = long_option['lastPrice']
-                
-                # Custom entry price for long leg
-                use_custom_long_price = st.checkbox(f"I purchased these {option_type.lower()}s at a different price")
-                if use_custom_long_price:
-                    long_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=long_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="long_entry"
-                    )
-                else:
-                    long_entry_premium = long_market_premium
-                
-                st.metric("Current Market Premium", f"${long_market_premium:.2f}")
-                st.caption(f"IV: {long_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            # Check if strikes are in the correct order
-            valid_strikes = False
-            if (option_type == "Call" and short_strike < long_strike) or (option_type == "Put" and short_strike > long_strike):
-                valid_strikes = True
-            
-            if valid_strikes:
-                # Calculate and display strategy metrics
-                net_cost = (ratio * long_entry_premium) - short_entry_premium
-                current_net_cost = (ratio * long_market_premium) - short_market_premium
-                
-                # Calculate unrealized P/L
-                unrealized_pl = (current_net_cost - net_cost) * 100  # Per spread
-                
-                position_type = "Debit" if net_cost > 0 else "Credit"
-                
-                metrics_cols = st.columns(3)
-                with metrics_cols[0]:
-                    st.metric(f"Net {position_type}", f"${abs(net_cost):.2f}")
-                    st.caption(f"Current: ${abs(current_net_cost):.2f}")
-                
-                with metrics_cols[1]:
-                    strike_diff = abs(long_strike - short_strike)
-                    st.metric("Strike Difference", f"${strike_diff:.2f}")
-                
-                with metrics_cols[2]:
-                    if option_type == "Call":
-                        max_profit_desc = "Unlimited (stock rises significantly)"
-                        max_loss_price = f"${long_strike:.2f}"
-                    else:
-                        max_profit_desc = f"${(short_strike - long_strike) * ratio - short_strike + long_strike - net_cost:.2f}*100"
-                        max_loss_price = f"${short_strike:.2f}"
-                    
-                    st.metric("Max Loss at", max_loss_price) 
-                
-                # Display unrealized P/L
-                st.metric(
-                    "Unrealized P/L", 
-                    f"${-unrealized_pl:.2f}",  # Negative because cost increased = loss
-                    delta=f"{(-unrealized_pl/(abs(net_cost)*100))*100:.1f}%" if net_cost != 0 else None
-                )
-                
-                # Special notes for backspread
-                if option_type == "Call":
-                    st.info("📝 Call ratio backspread profits when the stock price moves significantly higher. Risk is concentrated in the area between strikes.")
-                else:
-                    st.info("📝 Put ratio backspread profits when the stock price drops significantly. Risk is concentrated in the area between strikes.")
-                
-                quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-                
-                return create_strategy(
-                    "ratio_backspread",
-                    short_strike=short_strike,
-                    long_strike=long_strike,
-                    expiration=expiry,
-                    current_short_premium=short_market_premium,
-                    current_long_premium=long_market_premium,
-                    short_premium=short_entry_premium,
-                    long_premium=long_entry_premium,
-                    ratio=ratio,
-                    option_type=option_type.lower(),
-                    quantity=quantity,
-                    short_iv=short_option.get('impliedVolatility', 0.3),
-                    long_iv=long_option.get('impliedVolatility', 0.3)
-                )
-            else:
-                if option_type == "Call":
-                    st.error("Short call strike must be lower than long call strike for a ratio backspread")
-                else:
-                    st.error("Short put strike must be higher than long put strike for a ratio backspread")
-                return None
-
-    elif category == "Advanced Strategies":
-        if strategy_type == "Butterfly":
-            # Option type selection
-            option_type = st.selectbox("Option Type", ["Call", "Put"])
-            
-            # Get appropriate chain
-            option_chain = calls_df if option_type == "Call" else puts_df
-            available_strikes = sorted(option_chain['strike'].unique().tolist())
-            atm_index = min(range(len(available_strikes)), 
-                        key=lambda i: abs(available_strikes[i] - current_price))
-            
-            # Three-column layout for strike selection
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.subheader(f"Long {option_type} (Lower Strike)")
-                
-                # Select lower strike
-                # Lower third of strikes centered around ATM
-                low_range_end = min(atm_index + 3, len(available_strikes)-1)
-                low_range = range(max(0, atm_index - 3), low_range_end)
-                
-                if len(low_range) == 0:
-                    st.error(f"Not enough strikes available for butterfly {option_type.lower()} spread")
-                    return None
-                
-                low_strike_index = st.select_slider(
-                    f"Lower {option_type} Strike",
-                    options=low_range,
-                    value=max(0, atm_index - 2),
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                low_strike = available_strikes[low_strike_index]
-                
-                # Get option data
-                low_option = option_chain[option_chain['strike'] == low_strike].iloc[0]
-                low_market_premium = low_option['lastPrice']
-                
-                # Custom entry price
-                use_custom_low_price = st.checkbox(f"Custom lower {option_type.lower()} entry price")
-                if use_custom_low_price:
-                    low_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=low_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="low_entry"
-                    )
-                else:
-                    low_entry_premium = low_market_premium
-                
-                st.metric("Market Premium", f"${low_market_premium:.2f}")
-                st.caption(f"IV: {low_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader(f"Short 2 {option_type}s (Middle Strike)")
-                
-                # Middle strike selection
-                # Must be between low and high strikes
-                mid_range = range(low_strike_index + 1, len(available_strikes))
-                
-                if len(mid_range) == 0:
-                    st.error(f"Not enough strikes available for butterfly {option_type.lower()} spread")
-                    return None
-                
-                mid_strike_index = st.select_slider(
-                    f"Middle {option_type} Strike",
-                    options=mid_range,
-                    value=min(atm_index, len(available_strikes)-1) if atm_index > low_strike_index else low_strike_index + 1,
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                mid_strike = available_strikes[mid_strike_index]
-                
-                # Get option data
-                mid_option = option_chain[option_chain['strike'] == mid_strike].iloc[0]
-                mid_market_premium = mid_option['lastPrice']
-                
-                # Custom entry price
-                use_custom_mid_price = st.checkbox(f"Custom middle {option_type.lower()} entry price")
-                if use_custom_mid_price:
-                    mid_entry_premium = st.number_input(
-                        "Your sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=mid_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="mid_entry"
-                    )
-                else:
-                    mid_entry_premium = mid_market_premium
-                
-                st.metric("Market Premium", f"${mid_market_premium:.2f}")
-                st.caption(f"IV: {mid_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col3:
-                st.subheader(f"Long {option_type} (Higher Strike)")
-                
-                # Higher strike selection
-                # Must be higher than middle strike
-                high_range = range(mid_strike_index + 1, len(available_strikes))
-                
-                if len(high_range) == 0:
-                    st.error(f"Not enough strikes available for butterfly {option_type.lower()} spread")
-                    return None
-                
-                high_strike_index = st.select_slider(
-                    f"Higher {option_type} Strike",
-                    options=high_range,
-                    value=min(mid_strike_index + (mid_strike_index - low_strike_index), len(available_strikes)-1),  # Try to make it symmetric
-                    format_func=lambda i: f"${available_strikes[i]:.2f}"
-                )
-                high_strike = available_strikes[high_strike_index]
-                
-                # Get option data
-                high_option = option_chain[option_chain['strike'] == high_strike].iloc[0]
-                high_market_premium = high_option['lastPrice']
-                
-                # Custom entry price
-                use_custom_high_price = st.checkbox(f"Custom higher {option_type.lower()} entry price")
-                if use_custom_high_price:
-                    high_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=high_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="high_entry"
-                    )
-                else:
-                    high_entry_premium = high_market_premium
-                
-                st.metric("Market Premium", f"${high_market_premium:.2f}")
-                st.caption(f"IV: {high_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            # Check if strikes are evenly spaced (typical for butterfly)
-            is_even = (mid_strike - low_strike) == (high_strike - mid_strike)
-            
-            # Calculate and display butterfly metrics
-            net_debit = low_entry_premium + high_entry_premium - (2 * mid_entry_premium)
-            current_net_debit = low_market_premium + high_market_premium - (2 * mid_market_premium)
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (current_net_debit - net_debit) * 100  # Per butterfly
-            
-            metrics_cols = st.columns(4)
-            with metrics_cols[0]:
-                position_type = "Debit" if net_debit > 0 else "Credit"
-                st.metric(f"Net {position_type}", f"${abs(net_debit):.2f}")
-                st.caption(f"Current: ${abs(current_net_debit):.2f}")
-            
-            with metrics_cols[1]:
-                wing_width = high_strike - mid_strike
-                st.metric("Wing Width", f"${wing_width:.2f}")
-                if not is_even:
-                    st.caption("⚠️ Uneven wings (not symmetric)")
-            
-            with metrics_cols[2]:
-                max_profit = wing_width - net_debit if net_debit > 0 else wing_width + abs(net_debit)
-                st.metric("Max Profit", f"${max_profit * 100:.2f}")
-                st.caption("At middle strike")
-            
-            with metrics_cols[3]:
-                if net_debit > 0:  # Debit butterfly
-                    max_loss = net_debit
-                    risk_reward = max_profit / max_loss if max_loss > 0 else float('inf')
-                    st.metric("Risk/Reward", f"{risk_reward:.2f}:1")
-                else:  # Credit butterfly
-                    max_loss = wing_width - abs(net_debit)
-                    risk_reward = abs(net_debit) / max_loss if max_loss > 0 else float('inf')
-                    st.metric("Risk/Reward", f"{risk_reward:.2f}:1")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${-unrealized_pl:.2f}",  # Negative because debit increased = loss
-                delta=f"{(-unrealized_pl/(abs(net_debit)*100))*100:.1f}%" if net_debit != 0 else None
-            )
-            
-            # Calculate breakeven points
-            if net_debit > 0:  # Debit butterfly
-                lower_breakeven = mid_strike - max_profit
-                upper_breakeven = mid_strike + max_profit
-            else:  # Credit butterfly
-                lower_breakeven = low_strike + abs(net_debit)
-                upper_breakeven = high_strike - abs(net_debit)
-            
-            st.write(f"Breakeven Points: ${lower_breakeven:.2f} and ${upper_breakeven:.2f}")
-            
-            # Notes about butterfly
-            st.info(f"📝 The {option_type} Butterfly benefits from low volatility with maximum profit when the stock closes exactly at the middle strike (${mid_strike:.2f}) at expiration.")
-            
-            quantity = st.number_input("Quantity (# of butterflies)", min_value=1, value=1)
-            
-            return create_strategy(
-                "butterfly",
-                low_strike=low_strike,
-                mid_strike=mid_strike,
-                high_strike=high_strike,
-                expiration=expiry,
-                current_low_premium=low_market_premium,
-                current_mid_premium=mid_market_premium,
-                current_high_premium=high_market_premium,
-                low_premium=low_entry_premium,
-                mid_premium=mid_entry_premium,
-                high_premium=high_entry_premium,
-                option_type=option_type.lower(),
-                quantity=quantity,
-                low_iv=low_option.get('impliedVolatility', 0.3),
-                mid_iv=mid_option.get('impliedVolatility', 0.3),
-                high_iv=high_option.get('impliedVolatility', 0.3)
-            )
-
-        elif strategy_type == "Straddle":
-            # For straddle, we need one strike (usually ATM) for both call and put
-            available_call_strikes = sorted(calls_df['strike'].unique().tolist())
-            available_put_strikes = sorted(puts_df['strike'].unique().tolist())
-            
-            # Find common strikes
-            common_strikes = list(set(available_call_strikes) & set(available_put_strikes))
-            common_strikes.sort()
-            
-            if not common_strikes:
-                st.error("No common strikes available for both calls and puts")
-                return None
-            
-            # Find closest strike to current price
-            atm_index = min(range(len(common_strikes)), 
-                        key=lambda i: abs(common_strikes[i] - current_price))
-            
-            # Strike selection
-            selected_strike_index = st.select_slider(
-                "Strike Selection",
-                options=range(len(common_strikes)),
-                value=atm_index,
-                format_func=lambda i: f"${common_strikes[i]:.2f} ({'ATM' if abs(common_strikes[i] - current_price) < 0.01 else 'Near ATM'})"
-            )
-            selected_strike = common_strikes[selected_strike_index]
-            
-            # Two-column layout for call and put legs
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Long Call Leg")
-                
-                # Get call option data
-                call_option = calls_df[calls_df['strike'] == selected_strike].iloc[0]
-                call_market_premium = call_option['lastPrice']
-                
-                # Custom entry price for call
-                use_custom_call_price = st.checkbox("I purchased this call at a different price")
-                if use_custom_call_price:
-                    call_entry_premium = st.number_input(
-                        "Your call purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=call_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="call_entry"
-                    )
-                else:
-                    call_entry_premium = call_market_premium
-                
-                st.metric("Call Market Premium", f"${call_market_premium:.2f}")
-                st.caption(f"Call IV: {call_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate call breakeven
-                call_breakeven = selected_strike + call_entry_premium
-                st.write(f"Call Breakeven: ${call_breakeven:.2f} ({((call_breakeven/current_price)-1)*100:.1f}% from current)")
-            
-            with col2:
-                st.subheader("Long Put Leg")
-                
-                # Get put option data
-                put_option = puts_df[puts_df['strike'] == selected_strike].iloc[0]
-                put_market_premium = put_option['lastPrice']
-                
-                # Custom entry price for put
-                use_custom_put_price = st.checkbox("I purchased this put at a different price")
-                if use_custom_put_price:
-                    put_entry_premium = st.number_input(
-                        "Your put purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=put_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="put_entry"
-                    )
-                else:
-                    put_entry_premium = put_market_premium
-                
-                st.metric("Put Market Premium", f"${put_market_premium:.2f}")
-                st.caption(f"Put IV: {put_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate put breakeven
-                put_breakeven = selected_strike - put_entry_premium
-                st.write(f"Put Breakeven: ${put_breakeven:.2f} ({((put_breakeven/current_price)-1)*100:.1f}% from current)")
-            
-            # Calculate and display strategy metrics
-            total_entry_premium = call_entry_premium + put_entry_premium
-            total_market_premium = call_market_premium + put_market_premium
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (total_market_premium - total_entry_premium) * 100  # Per straddle
-            
-            metrics_cols = st.columns(3)
-            with metrics_cols[0]:
-                st.metric("Total Premium", f"${total_entry_premium:.2f}")
-                st.caption(f"Current: ${total_market_premium:.2f}")
-            
-            with metrics_cols[1]:
-                # Calculate required move for profit
-                required_move_pct = (total_entry_premium / current_price) * 100
-                st.metric("Required Move", f"{required_move_pct:.1f}%")
-                st.caption(f"${total_entry_premium:.2f} in either direction")
-            
-            with metrics_cols[2]:
-                # Calculate probability based on log-normal distribution
-                if days_to_expiry > 0:
-                    # Use average IV
-                    avg_iv = (call_option.get('impliedVolatility', 0.3) + put_option.get('impliedVolatility', 0.3)) / 2
-                    years = days_to_expiry / 365
-                    
-                    # Calculate probability of stock moving more than required amount
-                    z_score = total_entry_premium / (current_price * avg_iv * np.sqrt(years))
-                    prob = (1 - norm.cdf(z_score)) * 2  # Two-sided
-                    
-                    st.metric("Profit Probability", f"{prob*100:.1f}%")
-                    st.caption("Based on log-normal distribution")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${unrealized_pl:.2f}",
-                delta=f"{(unrealized_pl/(total_entry_premium*100))*100:.1f}%" if total_entry_premium > 0 else None
-            )
-            
-            # Notes on straddle
-            st.info("📝 A straddle profits from significant movement in either direction. The strategy has unlimited profit potential but requires the stock to move enough to overcome the premium paid.")
-            
-            quantity = st.number_input("Quantity (# of straddles)", min_value=1, value=1)
-            
-            return create_strategy(
-                "straddle",
-                strike=selected_strike,
-                expiration=expiry,
-                current_call_premium=call_market_premium,
-                current_put_premium=put_market_premium,
-                call_premium=call_entry_premium,
-                put_premium=put_entry_premium,
-                quantity=quantity,
-                call_iv=call_option.get('impliedVolatility', 0.3),
-                put_iv=put_option.get('impliedVolatility', 0.3)
-            )
-
-        elif strategy_type == "Strangle":
-            # Two-column layout for call and put legs
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Long Put Leg (Lower Strike)")
-                
-                # Find strikes near current price
-                available_put_strikes = sorted(puts_df['strike'].unique().tolist())
-                atm_index_put = min(range(len(available_put_strikes)), 
-                                key=lambda i: abs(available_put_strikes[i] - current_price))
-                
-                # For strangle, put should be OTM (below current price)
-                otm_put_options = range(atm_index_put)
-                
-                if not otm_put_options:
-                    st.error("No OTM put strikes available")
-                    return None
-                
-                put_strike_index = st.select_slider(
-                    "Put Strike",
-                    options=otm_put_options,
-                    value=max(0, atm_index_put - 2),  # Default to slightly OTM
-                    format_func=lambda i: f"${available_put_strikes[i]:.2f}"
-                )
-                put_strike = available_put_strikes[put_strike_index]
-                
-                # Get put option data
-                put_option = puts_df[puts_df['strike'] == put_strike].iloc[0]
-                put_market_premium = put_option['lastPrice']
-                
-                # Custom entry price for put
-                use_custom_put_price = st.checkbox("I purchased this put at a different price")
-                if use_custom_put_price:
-                    put_entry_premium = st.number_input(
-                        "Your put purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=put_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="put_entry"
-                    )
-                else:
-                    put_entry_premium = put_market_premium
-                
-                st.metric("Put Market Premium", f"${put_market_premium:.2f}")
-                st.caption(f"Put IV: {put_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            with col2:
-                st.subheader("Long Call Leg (Higher Strike)")
-                
-                # Find strikes near current price
-                available_call_strikes = sorted(calls_df['strike'].unique().tolist())
-                atm_index_call = min(range(len(available_call_strikes)), 
-                                    key=lambda i: abs(available_call_strikes[i] - current_price))
-                
-                # For strangle, call should be OTM (above current price)
-                otm_call_options = range(atm_index_call + 1, len(available_call_strikes))
-                
-                if not otm_call_options:
-                    st.error("No OTM call strikes available")
-                    return None
-                
-                call_strike_index = st.select_slider(
-                    "Call Strike",
-                    options=otm_call_options,
-                    value=min(len(available_call_strikes) - 1, atm_index_call + 2),  # Default to slightly OTM
-                    format_func=lambda i: f"${available_call_strikes[i]:.2f}"
-                )
-                call_strike = available_call_strikes[call_strike_index]
-                
-                # Get call option data
-                call_option = calls_df[calls_df['strike'] == call_strike].iloc[0]
-                call_market_premium = call_option['lastPrice']
-                
-                # Custom entry price for call
-                use_custom_call_price = st.checkbox("I purchased this call at a different price")
-                if use_custom_call_price:
-                    call_entry_premium = st.number_input(
-                        "Your call purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=call_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="call_entry"
-                    )
-                else:
-                    call_entry_premium = call_market_premium
-                
-                st.metric("Call Market Premium", f"${call_market_premium:.2f}")
-                st.caption(f"Call IV: {call_option.get('impliedVolatility', 0.3)*100:.1f}%")
-            
-            # Check if put strike is lower than call strike (required for strangle)
-            if put_strike >= call_strike:
-                st.error("Put strike must be lower than call strike for a strangle")
-                return None
-            
-            # Calculate and display strategy metrics
-            total_entry_premium = call_entry_premium + put_entry_premium
-            total_market_premium = call_market_premium + put_market_premium
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (total_market_premium - total_entry_premium) * 100  # Per strangle
-            
-            # Calculate breakevens
-            lower_breakeven = put_strike - put_entry_premium
-            upper_breakeven = call_strike + call_entry_premium
-            
-            metrics_cols = st.columns(3)
-            with metrics_cols[0]:
-                st.metric("Total Premium", f"${total_entry_premium:.2f}")
-                st.caption(f"Current: ${total_market_premium:.2f}")
-            
-            with metrics_cols[1]:
-                price_range = call_strike - put_strike
-                st.metric("Price Range", f"${price_range:.2f}")
-                st.caption(f"From ${put_strike:.2f} to ${call_strike:.2f}")
-            
-            with metrics_cols[2]:
-                # Calculate max profit and max loss
-                max_loss = total_entry_premium * 100
-                st.metric("Max Loss", f"${max_loss:.2f}")
-                st.caption("If price between strikes at expiration")
-            
-            # Display breakevens
-            breakeven_cols = st.columns(2)
-            with breakeven_cols[0]:
-                st.metric("Lower Breakeven", f"${lower_breakeven:.2f}")
-                st.caption(f"{((lower_breakeven/current_price)-1)*100:.1f}% from current")
-            
-            with breakeven_cols[1]:
-                st.metric("Upper Breakeven", f"${upper_breakeven:.2f}")
-                st.caption(f"{((upper_breakeven/current_price)-1)*100:.1f}% from current")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${unrealized_pl:.2f}",
-                delta=f"{(unrealized_pl/(total_entry_premium*100))*100:.1f}%" if total_entry_premium > 0 else None
-            )
-            
-            # Notes on strangle
-            st.info("📝 A strangle is similar to a straddle but uses OTM options, making it cheaper but requiring a larger price move to profit.")
-            
-            quantity = st.number_input("Quantity (# of strangles)", min_value=1, value=1)
-            
-            return create_strategy(
-                "strangle",
-                call_strike=call_strike,
-                put_strike=put_strike,
-                expiration=expiry,
-                current_call_premium=call_market_premium,
-                current_put_premium=put_market_premium,
-                call_premium=call_entry_premium,
-                put_premium=put_entry_premium,
-                quantity=quantity,
-                call_iv=call_option.get('impliedVolatility', 0.3),
-                put_iv=put_option.get('impliedVolatility', 0.3)
-            )
-
-        elif strategy_type == "Collar":
-            # Three-column layout for stock, put, and call components
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.subheader("Long Stock Component")
-                
-                # Stock cost basis
-                use_custom_stock_price = st.checkbox("I purchased the stock at a different price than current")
-                current_stock_price = current_price
-                
-                if use_custom_stock_price:
-                    stock_price = st.number_input(
-                        "Stock Cost Basis", 
-                        min_value=0.01,
-                        max_value=None,
-                        value=current_price,
-                        step=0.01,
-                        format="%.2f"
-                    )
-                    
-                    # Calculate unrealized stock P/L
-                    unrealized_stock_pl = (current_stock_price - stock_price) * 100  # 100 shares
-                    st.metric(
-                        "Unrealized Stock P/L", 
-                        f"${unrealized_stock_pl:.2f}", 
-                        delta=f"{(unrealized_stock_pl/(stock_price*100))*100:.1f}%" if stock_price > 0 else None
-                    )
-                else:
-                    stock_price = current_stock_price
-                
-                st.metric("Current Stock Price", f"${current_stock_price:.2f}")
-            
-            with col2:
-                st.subheader("Long Put (Protection)")
-                
-                # Find put strikes
-                available_put_strikes = sorted(puts_df['strike'].unique().tolist())
-                atm_index_put = min(range(len(available_put_strikes)), 
-                                key=lambda i: abs(available_put_strikes[i] - current_price))
-                
-                # For protective puts, typically use OTM puts (5-10% below current price)
-                put_strike_index = st.select_slider(
-                    "Put Strike",
-                    options=range(len(available_put_strikes)),
-                    value=max(0, atm_index_put - 2),  # Default to slightly OTM
-                    format_func=lambda i: f"${available_put_strikes[i]:.2f} ({'ITM' if available_put_strikes[i] > current_price else 'OTM' if available_put_strikes[i] < current_price else 'ATM'})"
-                )
-                put_strike = available_put_strikes[put_strike_index]
-                
-                # Get put option data
-                put_option = puts_df[puts_df['strike'] == put_strike].iloc[0]
-                put_market_premium = put_option['lastPrice']
-                
-                # Custom entry price for put
-                use_custom_put_price = st.checkbox("I purchased this put at a different price")
-                if use_custom_put_price:
-                    put_entry_premium = st.number_input(
-                        "Your put purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=put_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="put_entry"
-                    )
-                else:
-                    put_entry_premium = put_market_premium
-                
-                st.metric("Put Market Premium", f"${put_market_premium:.2f}")
-                st.caption(f"Put IV: {put_option.get('impliedVolatility', 0.3)*100:.1f}%")
-
-            with col3:
-                st.subheader("Short Call (Income)")
-                
-                # Find call strikes
-                available_call_strikes = sorted(calls_df['strike'].unique().tolist())
-                atm_index_call = min(range(len(available_call_strikes)), 
-                                    key=lambda i: abs(available_call_strikes[i] - current_price))
-                
-                # For covered calls, typically use OTM calls (5-10% above current price)
-                call_strike_index = st.select_slider(
-                    "Call Strike",
-                    options=range(len(available_call_strikes)),
-                    value=min(len(available_call_strikes) - 1, atm_index_call + 2),  # Default to slightly OTM
-                    format_func=lambda i: f"${available_call_strikes[i]:.2f} ({'ITM' if available_call_strikes[i] < current_price else 'OTM' if available_call_strikes[i] > current_price else 'ATM'})"
-                )
-                call_strike = available_call_strikes[call_strike_index]
-                
-                # Get call option data
-                call_option = calls_df[calls_df['strike'] == call_strike].iloc[0]
-                call_market_premium = call_option['lastPrice']
-                
-                # Custom entry price for call
-                use_custom_call_price = st.checkbox("I sold this call at a different price")
-                if use_custom_call_price:
-                    call_entry_premium = st.number_input(
-                        "Your call sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=call_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="call_entry"
-                    )
-                else:
-                    call_entry_premium = call_market_premium
-                
-                st.metric("Call Market Premium", f"${call_market_premium:.2f}")
-                st.caption(f"Call IV: {call_option.get('impliedVolatility', 0.3)*100:.1f}%")
-
-            # Check if put strike is lower than call strike (typical for collar)
-            if put_strike >= call_strike:
-                st.warning("⚠️ Typically put strike should be below call strike in a collar. The current setup might limit your upside significantly.")
-
-            # Calculate net cost of collar (put premium - call premium)
-            net_cost = put_entry_premium - call_entry_premium
-            current_net_cost = put_market_premium - call_market_premium
-
-            position_type = "Debit" if net_cost > 0 else "Credit"
-            cost_value = abs(net_cost)
-
-            # Calculate unrealized P/L for the options components
-            unrealized_options_pl = (call_entry_premium - call_market_premium + put_market_premium - put_entry_premium) * 100
-
-            # Calculate total strategy metrics
-            metrics_cols = st.columns(4)
-            with metrics_cols[0]:
-                st.metric(f"Net Options {position_type}", f"${cost_value:.2f}")
-                st.caption(f"Current: ${abs(current_net_cost):.2f}")
-
-            with metrics_cols[1]:
-                downside_protection = ((stock_price - put_strike) / stock_price) * 100
-                st.metric("Downside Protection", f"{downside_protection:.1f}%")
-                st.caption(f"Protected below ${put_strike:.2f}")
-
-            with metrics_cols[2]:
-                upside_cap = ((call_strike - stock_price) / stock_price) * 100
-                st.metric("Upside Cap", f"{upside_cap:.1f}%")
-                st.caption(f"Capped above ${call_strike:.2f}")
-
-            with metrics_cols[3]:
-                max_profit = (call_strike - stock_price + call_entry_premium - put_entry_premium) * 100
-                st.metric("Max Profit", f"${max_profit:.2f}")
-                if max_profit > 0:
-                    st.caption(f"{(max_profit/(stock_price*100))*100:.1f}% return")
-                else:
-                    st.caption("Limited to net credit")
-
-            # Display unrealized P/L
-            total_unrealized_pl = unrealized_options_pl + (current_stock_price - stock_price) * 100
-            st.metric(
-                "Total Unrealized P/L", 
-                f"${total_unrealized_pl:.2f}",
-                delta=f"{(total_unrealized_pl/(stock_price*100))*100:.1f}%" if stock_price > 0 else None
-            )
-
-            # Notes on collar
-            st.info("📝 A collar provides downside protection for a long stock position in exchange for limited upside potential. It combines a protective put with a covered call.")
-
-            quantity = st.number_input("Quantity (# of contracts/100 shares)", min_value=1, value=1)
-
-            return create_strategy(
-                "collar",
-                current_stock_price=current_stock_price,
-                stock_price=stock_price,
-                put_strike=put_strike,
-                call_strike=call_strike,
-                expiration=expiry,
-                current_put_premium=put_market_premium,
-                current_call_premium=call_market_premium,
-                put_premium=put_entry_premium,
-                call_premium=call_entry_premium,
-                quantity=quantity,
-                put_iv=put_option.get('impliedVolatility', 0.3),
-                call_iv=call_option.get('impliedVolatility', 0.3)
-            )
-
-            # Diagonal Spread
-
-        elif strategy_type == "Diagonal Spread":
-            # Get available expirations
-            near_expiry = selected_expiry
-            far_expirations = [exp for exp in expirations if exp > near_expiry]
-            
-            if not far_expirations:
-                st.error("No longer-dated expirations available for diagonal spread")
-                return None
-            
-            # Option type selection
-            option_type = st.selectbox("Option Type", ["Call", "Put"])
-            
-            # Far-month expiration selection
-            far_expiry = st.selectbox("Far-Month Expiration", far_expirations)
-            
-            # Two-column layout for near and far options
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader(f"Long {option_type} (Far Term)")
-                
-                # Get appropriate chains for far expiry
-                try:
-                    far_calls, far_puts = get_option_chain(ticker, far_expiry)
-                    far_chain = pd.DataFrame(far_calls if option_type == "Call" else far_puts)
-                except Exception:
-                    st.error(f"Could not fetch {option_type.lower()} options for {far_expiry}")
-                    return None
-                
-                # Get available strikes
-                far_strikes = sorted(far_chain['strike'].unique().tolist())
-                far_atm_index = min(range(len(far_strikes)), 
-                                key=lambda i: abs(far_strikes[i] - current_price))
-                
-                # Strike selection depends on option type
-                if option_type == "Call":
-                    # For diagonal call spreads, long leg often ITM or ATM
-                    strike_default = max(0, far_atm_index - 1)
-                else:
-                    # For diagonal put spreads, long leg often ITM or ATM
-                    strike_default = min(len(far_strikes) - 1, far_atm_index + 1)
-                
-                far_strike_index = st.select_slider(
-                    f"Far-Term {option_type} Strike",
-                    options=range(len(far_strikes)),
-                    value=strike_default,
-                    format_func=lambda i: f"${far_strikes[i]:.2f} ({'ITM' if (option_type == 'Call' and far_strikes[i] < current_price) or (option_type == 'Put' and far_strikes[i] > current_price) else 'OTM' if (option_type == 'Call' and far_strikes[i] > current_price) or (option_type == 'Put' and far_strikes[i] < current_price) else 'ATM'})"
-                )
-                far_strike = far_strikes[far_strike_index]
-                
-                # Get option data
-                far_option = far_chain[far_chain['strike'] == far_strike].iloc[0]
-                far_market_premium = far_option['lastPrice']
-                
-                # Custom entry price
-                use_custom_far_price = st.checkbox(f"I purchased this {option_type.lower()} at a different price")
-                if use_custom_far_price:
-                    far_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=far_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="far_entry"
-                    )
-                else:
-                    far_entry_premium = far_market_premium
-                
-                st.metric("Market Premium", f"${far_market_premium:.2f}")
-                st.caption(f"IV: {far_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to far-term expiry
-                far_expiry_date = datetime.strptime(far_expiry, "%Y-%m-%d").date()
-                today = datetime.now().date()
-                far_days_to_expiry = (far_expiry_date - today).days
-                st.caption(f"Days to Expiration: {far_days_to_expiry}")
-            
-            with col2:
-                st.subheader(f"Short {option_type} (Near Term)")
-                
-                # Get appropriate chain for near term
-                near_chain = calls_df if option_type == "Call" else puts_df
-                
-                # Get available strikes
-                near_strikes = sorted(near_chain['strike'].unique().tolist())
-                near_atm_index = min(range(len(near_strikes)), 
-                                    key=lambda i: abs(near_strikes[i] - current_price))
-                
-                # Strike selection depends on option type
-                if option_type == "Call":
-                    # For diagonal call spreads, short leg is typically OTM
-                    strike_default = min(len(near_strikes) - 1, near_atm_index + 2)
-                else:
-                    # For diagonal put spreads, short leg is typically OTM
-                    strike_default = max(0, near_atm_index - 2)
-                
-                near_strike_index = st.select_slider(
-                    f"Near-Term {option_type} Strike",
-                    options=range(len(near_strikes)),
-                    value=strike_default,
-                    format_func=lambda i: f"${near_strikes[i]:.2f} ({'ITM' if (option_type == 'Call' and near_strikes[i] < current_price) or (option_type == 'Put' and near_strikes[i] > current_price) else 'OTM' if (option_type == 'Call' and near_strikes[i] > current_price) or (option_type == 'Put' and near_strikes[i] < current_price) else 'ATM'})"
-                )
-                near_strike = near_strikes[near_strike_index]
-                
-                # Get option data
-                near_option = near_chain[near_chain['strike'] == near_strike].iloc[0]
-                near_market_premium = near_option['lastPrice']
-                
-                # Custom entry price
-                use_custom_near_price = st.checkbox(f"I sold this {option_type.lower()} at a different price")
-                if use_custom_near_price:
-                    near_entry_premium = st.number_input(
-                        "Your sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
-                        value=near_market_premium,
-                        step=0.01,
-                        format="%.2f",
-                        key="near_entry"
-                    )
-                else:
-                    near_entry_premium = near_market_premium
-                
-                st.metric("Market Premium", f"${near_market_premium:.2f}")
-                st.caption(f"IV: {near_option.get('impliedVolatility', 0.3)*100:.1f}%")
-                
-                # Calculate days to near-term expiry
-                near_expiry_date = datetime.strptime(near_expiry, "%Y-%m-%d").date()
-                near_days_to_expiry = (near_expiry_date - today).days
-                st.caption(f"Days to Expiration: {near_days_to_expiry}")
-            
-            # Check if strikes make sense for the strategy
-            if option_type == "Call" and far_strike > near_strike:
-                st.warning("⚠️ Typically long call strike is lower than short call strike in a diagonal. The current setup might limit your profit potential.")
-            elif option_type == "Put" and far_strike < near_strike:
-                st.warning("⚠️ Typically long put strike is higher than short put strike in a diagonal. The current setup might limit your profit potential.")
-            
-            # Calculate net cost of diagonal
-            net_debit = far_entry_premium - near_entry_premium
-            current_net_debit = far_market_premium - near_market_premium
-            
-            # Calculate unrealized P/L
-            unrealized_pl = (current_net_debit - net_debit) * 100  # Per spread
-            
-            metrics_cols = st.columns(3)
-            with metrics_cols[0]:
-                position_type = "Debit" if net_debit > 0 else "Credit"
-                st.metric(f"Net {position_type}", f"${abs(net_debit):.2f}")
-                st.caption(f"Current: ${abs(current_net_debit):.2f}")
-            
-            with metrics_cols[1]:
-                iv_diff = far_option.get('impliedVolatility', 0.3) - near_option.get('impliedVolatility', 0.3)
-                st.metric("IV Difference", f"{iv_diff*100:.1f}%")
-                st.caption("Far term - Near term")
-            
-            with metrics_cols[2]:
-                time_diff = far_days_to_expiry - near_days_to_expiry
-                st.metric("Time Difference", f"{time_diff} days")
-                st.caption(f"{time_diff / 7:.1f} weeks")
-            
-            # Display unrealized P/L
-            st.metric(
-                "Unrealized P/L", 
-                f"${-unrealized_pl:.2f}",  # Negative because debit increased = loss
-                delta=f"{(-unrealized_pl/(abs(net_debit)*100))*100:.1f}%" if net_debit != 0 else None
-            )
-            
-            # Notes on diagonal spreads
-            st.info("📝 Diagonal spreads benefit from time decay of the near-term option while maintaining exposure with the longer-term option. They're complex structures with multi-dimensional risk.")
-            
-            quantity = st.number_input("Quantity (# of spreads)", min_value=1, value=1)
-            
-            return create_strategy(
-                "diagonal_spread",
-                long_strike=far_strike,
-                short_strike=near_strike,
-                long_expiration=far_expiry,
-                short_expiration=near_expiry,
-                current_long_premium=far_market_premium,
-                current_short_premium=near_market_premium,
-                long_premium=far_entry_premium,
-                short_premium=near_entry_premium,
-                option_type=option_type.lower(),
-                quantity=quantity,
-                long_iv=far_option.get('impliedVolatility', 0.3),
-                short_iv=near_option.get('impliedVolatility', 0.3)
-            )
     
     elif category == "Custom Strategies":
         # Enhanced custom strategy builder
@@ -3252,6 +1463,31 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
         
         return strategy_legs
 
+# Helper functions
+def calculate_strategy_volatility(strategy_legs):
+    """Calculate average implied volatility from strategy legs."""
+    ivs = [leg.get('iv', 0.3) for leg in strategy_legs 
+          if leg.get('type') in ('call', 'put') and 'iv' in leg]
+    
+    if not ivs:
+        return 0.3  # Default if no IVs found
+    return sum(ivs) / len(ivs)
+
+def find_breakeven_points(price_range, payoffs):
+    """Find breakeven points in a strategy (where payoff crosses zero)."""
+    breakeven_points = []
+    for i in range(1, len(price_range)):
+        if (payoffs[i-1] <= 0 and payoffs[i] > 0) or (payoffs[i-1] >= 0 and payoffs[i] < 0):
+            # Linear interpolation to find precise breakeven
+            x0, y0 = price_range[i-1], payoffs[i-1]
+            x1, y1 = price_range[i], payoffs[i]
+            
+            if y1 - y0 != 0:  # Avoid division by zero
+                breakeven = x0 + (x1 - x0) * (-y0) / (y1 - y0)
+                breakeven_points.append(breakeven)
+    
+    return breakeven_points
+
 # Function to analyze and visualize strategy
 def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_expiry=None, available_expirations=None):
     if not strategy_legs:
@@ -3330,7 +1566,7 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             # Add zero line
             fig.add_shape(
                 type="line",
-                x0=min_price, x1=max_price,
+                x0=min(price_range), x1=max(price_range),
                 y0=0, y1=0,
                 line=dict(color="black", width=1)
             )
@@ -4116,31 +2352,6 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
         else:
             st.info("No position analysis available. Use custom entry prices to analyze your actual position.")
 
-# Helper functions
-def calculate_strategy_volatility(strategy_legs):
-    """Calculate average implied volatility from strategy legs."""
-    ivs = [leg.get('iv', 0.3) for leg in strategy_legs 
-          if leg.get('type') in ('call', 'put') and 'iv' in leg]
-    
-    if not ivs:
-        return 0.3  # Default if no IVs found
-    return sum(ivs) / len(ivs)
-
-def find_breakeven_points(price_range, payoffs):
-    """Find breakeven points in a strategy (where payoff crosses zero)."""
-    breakeven_points = []
-    for i in range(1, len(price_range)):
-        if (payoffs[i-1] <= 0 and payoffs[i] > 0) or (payoffs[i-1] >= 0 and payoffs[i] < 0):
-            # Linear interpolation to find precise breakeven
-            x0, y0 = price_range[i-1], payoffs[i-1]
-            x1, y1 = price_range[i], payoffs[i]
-            
-            if y1 - y0 != 0:  # Avoid division by zero
-                breakeven = x0 + (x1 - x0) * (-y0) / (y1 - y0)
-                breakeven_points.append(breakeven)
-    
-    return breakeven_points
-
 # Main app flow
 def main():
     # Show header
@@ -4318,8 +2529,9 @@ if __name__ == "__main__":
                     padding: 15px;
                     margin-bottom: 15px;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                        
-                }.mobile-header {
+                }
+                
+                .mobile-header {
                     font-size: 1.2rem;
                     font-weight: 600;
                     color: #1E88E5;
