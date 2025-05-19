@@ -155,19 +155,34 @@ def handle_ticker_selection():
 # Function to show strategy information
 def show_strategy_info(category, strategy_type):
     """Display information about the selected options strategy."""
-    from config import STRATEGY_INFO
-
-    # Display strategy info if available
-    if strategy_type in STRATEGY_INFO:
-        st.markdown(STRATEGY_INFO[strategy_type])
+    from config import STRATEGY_INFO, STRATEGY_NAME_TO_TYPE
+    
+    # Try to get strategy key that maps to the info dictionary
+    strategy_key = strategy_type
+    
+    # Handle custom strategies specially
+    if category == "Custom Strategies":
+        if "2 Legs" in strategy_type:
+            strategy_key = "Custom - 2 Legs"
+        elif "3 Legs" in strategy_type:
+            strategy_key = "Custom - 3 Legs"
+        elif "4 Legs" in strategy_type:
+            strategy_key = "Custom - 4 Legs"
+    
+    # Display the strategy information
+    if strategy_key in STRATEGY_INFO:
+        # The info in the dictionary is already formatted with Markdown
+        st.markdown(STRATEGY_INFO[strategy_key])
     else:
-        # Fallback for any strategies not found in the dictionary
+        # Create a default information display
         st.markdown(f"""
-        **{strategy_type}**
+        **{strategy_type}**: 
         
         - **Max Loss**: Varies based on configuration
         - **Max Gain**: Varies based on configuration
         - **When to Use**: Specialized strategy for specific market outlooks
+        
+        See the documentation for more detailed information about this strategy.
         """)
 
 # Function to configure strategy
@@ -1145,147 +1160,13 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             )
     
     elif category == "Custom Strategies":
-        # Enhanced custom strategy builder
-        st.subheader("Custom Strategy Builder")
-        
-        num_legs = int(strategy_type.split(" - ")[1][0])  # Extract number of legs
-        
-        strategy_legs = []
-        total_cost = 0
-        
-        for i in range(num_legs):
-            st.write(f"### Leg {i+1}")
-            leg_expander = st.expander(f"Configure Leg {i+1}", expanded=True)
-            
-            with leg_expander:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    leg_type = st.selectbox(
-                        "Type", 
-                        ["Call", "Put", "Stock"], 
-                        key=f"type_{i}"
-                    )
-                    position = st.selectbox(
-                        "Position", 
-                        ["Long", "Short"], 
-                        key=f"pos_{i}"
-                    )
-                
-                with col2:
-                    quantity = st.number_input(
-                        "Quantity", 
-                        min_value=1, 
-                        value=1, 
-                        key=f"qty_{i}"
-                    )
-                    
-                    if leg_type != "Stock":
-                        # Get appropriate chain
-                        option_chain = calls_df if leg_type == "Call" else puts_df
-                        available_strikes = sorted(option_chain['strike'].unique().tolist())
-                        
-                        # Find ATM index
-                        atm_index = min(range(len(available_strikes)), 
-                                       key=lambda i: abs(available_strikes[i] - current_price))
-                        
-                        strike_index = st.select_slider(
-                            "Strike Price",
-                            options=range(len(available_strikes)),
-                            value=atm_index,
-                            format_func=lambda i: f"${available_strikes[i]:.2f}",
-                            key=f"strike_{i}"
-                        )
-                        strike = available_strikes[strike_index]
-                        
-                        # Get option data
-                        option_data = option_chain[option_chain['strike'] == strike].iloc[0]
-                        market_premium = option_data['lastPrice']
-                        iv = option_data.get('impliedVolatility', 0.3)
-                        
-                        # Allow custom entry price
-                        use_custom_price = st.checkbox(f"Custom entry price for leg {i+1}")
-                        if use_custom_price:
-                            entry_premium = st.number_input(
-                                "Your entry price", 
-                                min_value=0.01, 
-                                max_value=None, 
-                                value=market_premium,
-                                step=0.01,
-                                format="%.2f",
-                                key=f"entry_{i}"
-                            )
-                        else:
-                            entry_premium = market_premium
-                        
-                        # Display option information
-                        st.metric("Market Premium", f"${market_premium:.2f}")
-                        st.caption(f"IV: {iv*100:.1f}%")
-                        
-                        leg = {
-                            'type': leg_type.lower(),
-                            'position': position.lower(),
-                            'strike': strike,
-                            'expiry': expiry,
-                            'price': entry_premium,
-                            'current_price': market_premium,
-                            'quantity': quantity,
-                            'iv': iv
-                        }
-                        
-                        # Calculate cost effect
-                        leg_effect = entry_premium * quantity * 100
-                        if position == "Long":
-                            total_cost += leg_effect
-                        else:
-                            total_cost -= leg_effect
-                    else:  # Stock leg
-                        current_stock_price = current_price
-                        
-                        # Allow custom entry price for stock
-                        use_custom_stock = st.checkbox(f"Custom entry price for stock leg {i+1}")
-                        if use_custom_stock:
-                            stock_price = st.number_input(
-                                "Your purchase/sale price", 
-                                min_value=0.01,
-                                max_value=None,
-                                value=current_price,
-                                step=0.01,
-                                format="%.2f",
-                                key=f"stock_price_{i}"
-                            )
-                        else:
-                            stock_price = current_price
-                        
-                        leg = {
-                            'type': 'stock',
-                            'position': position.lower(),
-                            'price': stock_price,
-                            'current_price': current_stock_price,
-                            'quantity': quantity * 100  # 100 shares per contract
-                        }
-                        
-                        # Calculate stock cost
-                        stock_cost = stock_price * quantity * 100
-                        if position == "Long":
-                            total_cost += stock_cost
-                        else:
-                            total_cost -= stock_cost
-                    
-                    strategy_legs.append(leg)
-        
-        # Show strategy summary
-        st.subheader("Strategy Summary")
-        
-        # Determine if net debit or credit
-        cost_type = "Debit" if total_cost > 0 else "Credit"
-        
-        # Display strategy cost with improved formatting
-        st.metric("Net Strategy Cost", 
-                 f"${abs(total_cost):.2f} {cost_type}", 
-                 delta=f"{abs(total_cost)/current_price/100:.1f}% of stock price")
-        
-        return strategy_legs
+        expiration_dates = get_expiration_dates(ticker) if ticker else []
+        strategy_options = ["Enhanced Strategy Builder"]
+        strategy_type = st.selectbox("Strategy Type", strategy_options)
+        # Only Enhanced Strategy Builder supported
+        if strategy_type == "Enhanced Strategy Builder":
+            from strategies.custom_strategy import configure_custom_strategy
+            return configure_custom_strategy(ticker, current_price, expiration_dates, calls_df, puts_df)
 
 # Helper functions
 def calculate_strategy_volatility(strategy_legs):
