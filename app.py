@@ -3247,7 +3247,7 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
         return strategy_legs
 
 # Function to analyze and visualize strategy
-def analyze_strategy(strategy_legs, current_price, expiry_date, days_to_expiry):
+def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_expiry=None, available_expirations=None):
     if not strategy_legs:
         st.info("Configure your options strategy to see analysis here")
         return
@@ -4164,7 +4164,8 @@ def main():
                 st.session_state.get('strategy_legs'),
                 current_price,
                 selected_expiry if 'selected_expiry' in locals() else None,
-                days_to_expiry if 'days_to_expiry' in locals() else None
+                days_to_expiry if 'days_to_expiry' in locals() else None,
+                expirations if 'expirations' in locals() else None
             )
     else:
         # Show welcome message
