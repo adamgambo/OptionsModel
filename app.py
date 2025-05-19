@@ -44,8 +44,8 @@ if 'theme' not in st.session_state:
 # Theme toggle in the sidebar
 with st.sidebar:
     # Add logo and app title with better styling
-   if os.path.exists("assets/logo.png"):
-    st.image("assets/logo.png", width=100)
+    if os.path.exists("assets/logo.png"):
+        st.image("assets/logo.png", width=100)
     st.title("Options Strategy Calculator")
     
     # Theme selector
