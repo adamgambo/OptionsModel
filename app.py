@@ -288,6 +288,7 @@ def configure_strategy(ticker, current_price, expirations):
 
 # Function to show strategy information
 def show_strategy_info(category, strategy_type):
+    """Display information about the selected options strategy."""
     if category == "Basic Strategies":
         if strategy_type == "Long Call":
             st.markdown("""
@@ -316,9 +317,164 @@ def show_strategy_info(category, strategy_type):
             - **Breakeven**: Stock purchase price - premium
             - **When to Use**: Slightly bullish or neutral, generate income
             """)
-        # Add other strategy descriptions...
+        elif strategy_type == "Cash Secured Put":
+            st.markdown("""
+            **Cash Secured Put**: Sell a put option and set aside enough cash to buy the stock if assigned.
+            
+            - **Max Loss**: Limited to (strike - premium) if stock goes to zero
+            - **Max Gain**: Limited to premium received
+            - **Breakeven**: Strike price - premium
+            - **When to Use**: Bullish to neutral, willing to buy stock at lower price
+            """)
+        elif strategy_type == "Naked Call":
+            st.markdown("""
+            **Naked Call**: Sell a call option without owning the underlying stock.
+            
+            - **Max Loss**: Unlimited (stock can rise indefinitely)
+            - **Max Gain**: Limited to premium received
+            - **Breakeven**: Strike price + premium
+            - **When to Use**: Very bearish to neutral, high-risk strategy
+            """)
+        elif strategy_type == "Naked Put":
+            st.markdown("""
+            **Naked Put**: Sell a put option without setting aside cash to buy the stock.
+            
+            - **Max Loss**: Limited to (strike - premium) if stock goes to zero
+            - **Max Gain**: Limited to premium received
+            - **Breakeven**: Strike price - premium
+            - **When to Use**: Bullish, similar to Cash Secured Put but with margin
+            """)
     
-    # Add descriptions for spread strategies and advanced strategies...
+    elif category == "Spread Strategies":
+        if strategy_type == "Bull Call Spread":
+            st.markdown("""
+            **Bull Call Spread**: Buy a call at a lower strike and sell a call at a higher strike.
+            
+            - **Max Loss**: Limited to the net debit paid
+            - **Max Gain**: Limited to (higher strike - lower strike - net debit)
+            - **Breakeven**: Lower strike + net debit
+            - **When to Use**: Moderately bullish, defined risk/reward
+            """)
+        elif strategy_type == "Bear Put Spread":
+            st.markdown("""
+            **Bear Put Spread**: Buy a put at a higher strike and sell a put at a lower strike.
+            
+            - **Max Loss**: Limited to the net debit paid
+            - **Max Gain**: Limited to (higher strike - lower strike - net debit)
+            - **Breakeven**: Higher strike - net debit
+            - **When to Use**: Moderately bearish, defined risk/reward
+            """)
+        elif strategy_type == "Bull Put Credit Spread":
+            st.markdown("""
+            **Bull Put Credit Spread**: Sell a put at a higher strike and buy a put at a lower strike.
+            
+            - **Max Loss**: Limited to (higher strike - lower strike - net credit)
+            - **Max Gain**: Limited to the net credit received
+            - **Breakeven**: Higher strike - net credit
+            - **When to Use**: Bullish to neutral, profit from time decay
+            """)
+        elif strategy_type == "Bear Call Credit Spread":
+            st.markdown("""
+            **Bear Call Credit Spread**: Sell a call at a lower strike and buy a call at a higher strike.
+            
+            - **Max Loss**: Limited to (higher strike - lower strike - net credit)
+            - **Max Gain**: Limited to the net credit received
+            - **Breakeven**: Lower strike + net credit
+            - **When to Use**: Bearish to neutral, profit from time decay
+            """)
+        elif strategy_type == "Calendar Spread":
+            st.markdown("""
+            **Calendar Spread**: Sell a near-term option and buy a farther-term option at the same strike.
+            
+            - **Max Loss**: Limited to the net debit paid
+            - **Max Gain**: Varies based on underlying price at near-term expiration
+            - **Breakeven**: Varies, typically near the strike price at near-term expiration
+            - **When to Use**: Neutral, expecting little movement in the near term
+            """)
+        elif strategy_type == "Poor Man's Covered Call":
+            st.markdown("""
+            **Poor Man's Covered Call**: Buy a deep ITM long-term call and sell an OTM short-term call.
+            
+            - **Max Loss**: Limited to the net debit paid for the long call minus credit received
+            - **Max Gain**: Limited to (short call strike - long call strike) + (credit received - debit paid)
+            - **Breakeven**: Long call strike + net debit
+            - **When to Use**: Similar to covered call but requires less capital
+            """)
+        elif strategy_type == "Ratio Back Spread":
+            st.markdown("""
+            **Ratio Back Spread**: Sell 1 option at a lower strike and buy multiple options at a higher strike.
+            
+            - **Max Loss**: Occurs between the two strikes
+            - **Max Gain**: Potentially unlimited on the upside (for call ratio spreads)
+            - **Breakeven**: Complex, depends on ratio and premiums
+            - **When to Use**: Expecting a large move in one direction
+            """)
+    
+    elif category == "Advanced Strategies":
+        if strategy_type == "Iron Condor":
+            st.markdown("""
+            **Iron Condor**: A combination of a bull put spread and a bear call spread.
+            
+            - **Max Loss**: Limited to (width of either spread - net credit)
+            - **Max Gain**: Limited to the net credit received
+            - **Breakeven**: Lower call strike + net credit AND higher put strike - net credit
+            - **When to Use**: Neutral outlook, expect price to stay within a range
+            """)
+        elif strategy_type == "Butterfly":
+            st.markdown("""
+            **Butterfly**: Buy one lower strike option, sell two middle strike options, buy one higher strike option.
+            
+            - **Max Loss**: Limited to the net debit paid
+            - **Max Gain**: Limited to (middle strike - lower strike - net debit)
+            - **Breakeven**: Lower strike + net debit AND higher strike - net debit
+            - **When to Use**: Neutral, expect price to be near middle strike at expiration
+            """)
+        elif strategy_type == "Straddle":
+            st.markdown("""
+            **Straddle**: Buy a call and a put at the same strike price and expiration.
+            
+            - **Max Loss**: Limited to the total premium paid
+            - **Max Gain**: Unlimited (stock moves far in either direction)
+            - **Breakeven**: Strike + total premium AND Strike - total premium
+            - **When to Use**: Expecting significant movement but unsure of direction
+            """)
+        elif strategy_type == "Strangle":
+            st.markdown("""
+            **Strangle**: Buy an OTM call and an OTM put with the same expiration.
+            
+            - **Max Loss**: Limited to the total premium paid
+            - **Max Gain**: Unlimited (stock moves far in either direction)
+            - **Breakeven**: Call strike + total premium AND Put strike - total premium
+            - **When to Use**: Expecting significant movement but unsure of direction, cheaper than a straddle
+            """)
+        elif strategy_type == "Collar":
+            st.markdown("""
+            **Collar**: Own stock, buy a protective put, and sell a covered call.
+            
+            - **Max Loss**: Limited to (stock price - put strike + net premium)
+            - **Max Gain**: Limited to (call strike - stock price - net premium)
+            - **Breakeven**: Stock price + net premium
+            - **When to Use**: Protect a long stock position with limited cost
+            """)
+        elif strategy_type == "Diagonal Spread":
+            st.markdown("""
+            **Diagonal Spread**: Buy a longer-term option at one strike and sell a shorter-term option at a different strike.
+            
+            - **Max Loss**: Limited to the net debit paid
+            - **Max Gain**: Varies based on underlying price movements
+            - **Breakeven**: Complex, depends on stock price at near-term expiration
+            - **When to Use**: Exploiting term structure of volatility, reducing cost of long options
+            """)
+    
+    elif category == "Custom Strategies":
+        st.markdown("""
+        **Custom Strategy**: Build your own multi-leg strategy with complete flexibility.
+        
+        - Configure each leg with option type, position (long/short), strike, quantity, and more
+        - Mix and match calls, puts, and stock positions
+        - Analyze complex or non-standard strategies
+        - Create strategies with multiple expirations
+        """)
 
 # Function to configure specific strategy
 def configure_specific_strategy(category, strategy_type, ticker, current_price, 
