@@ -1,13 +1,30 @@
 # --- utils.py ---
+"""
+Utility functions for the Options Strategy Calculator.
+Includes functions for calculations, visualizations, and formatting.
+"""
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import streamlit as st
+import logging
 from pricing import black_scholes, calculate_greeks
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
 def annualized_days(expiration_date, current_date=None):
-    """Convert days to expiration to annualized fraction."""
+    """
+    Convert days to expiration to annualized fraction.
+    
+    Parameters:
+        expiration_date (str|date): Expiration date
+        current_date (date): Current date (defaults to today)
+        
+    Returns:
+        float: Time to expiration in years
+    """
     if current_date is None:
         current_date = datetime.now().date()
     if isinstance(expiration_date, str):
@@ -16,7 +33,17 @@ def annualized_days(expiration_date, current_date=None):
     return max(delta, 0) / 365  # Ensure non-negative value
 
 def format_price(price, prefix="$", decimals=2):
-    """Format price with currency symbol and fixed decimals."""
+    """
+    Format price with currency symbol and fixed decimals.
+    
+    Parameters:
+        price (float): Price to format
+        prefix (str): Currency symbol
+        decimals (int): Number of decimal places
+        
+    Returns:
+        str: Formatted price string
+    """
     if price is None:
         return "N/A"
     if isinstance(price, str):
@@ -24,14 +51,19 @@ def format_price(price, prefix="$", decimals=2):
     return f"{prefix}{price:.{decimals}f}"
 
 def format_percent(value, decimals=2):
-    """Format value as percentage."""
+    """
+    Format value as percentage.
+    
+    Parameters:
+        value (float): Value to format (in decimal form)
+        decimals (int): Number of decimal places
+        
+    Returns:
+        str: Formatted percentage string
+    """
     if value is None:
         return "N/A"
     return f"{value * 100:.{decimals}f}%"
-
-def format_contract_size(value, contract_size=100):
-    """Format option contract size (typically 100 shares per contract)."""
-    return value * contract_size
 
 def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
     """
@@ -39,30 +71,46 @@ def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
     Uses entry prices for P/L calculations.
     
     Parameters:
-    strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
-    price_range (array): Array of prices to calculate payoff for
-    current_price (float): Current stock price (for reference)
-    
+        strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
+        price_range (array): Array of prices to calculate payoff for
+        current_price (float): Current stock price (for reference)
+        
     Returns:
-    list: Payoff values for each price in price_range
+        array: Payoff values for each price in price_range
     """
     # Convert price_range to numpy array if it's not already
     price_range = np.array(price_range)
     
+    # Initialize payoffs array with zeros
     payoffs = np.zeros(len(price_range))
     
+    # Validate strategy_legs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to calculate_strategy_payoff")
+        return payoffs
+    
+    # Calculate payoff for each leg
     for leg in strategy_legs:
-        leg_type = leg.get('type')
-        position = leg.get('position')
-        strike = leg.get('strike')
+        # Validate leg format
+        if not isinstance(leg, dict):
+            logger.warning(f"Invalid leg format in calculate_strategy_payoff: {leg}")
+            continue
         
-        # Use entry price (price) for P/L calculations, not current_price
+        # Extract leg parameters with defaults for missing values
+        leg_type = leg.get('type', '')
+        position = leg.get('position', '')
+        strike = leg.get('strike', 0)
         premium = leg.get('price', 0)
         quantity = leg.get('quantity', 1)
         
-        # Sign based on position (long or short)
+        # Skip invalid legs
+        if not leg_type or not position:
+            continue
+        
+        # Determine position sign
         sign = 1 if position == 'long' else -1
         
+        # Calculate payoff based on leg type
         if leg_type == 'call':
             # Call payoff at expiration: max(0, stock_price - strike) - premium
             leg_payoffs = np.maximum(0, price_range - strike) - premium
@@ -75,50 +123,81 @@ def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
             
         elif leg_type == 'stock':
             # Stock payoff: (current_price - purchase_price)
-            purchase_price = leg.get('price', current_price)
+            purchase_price = leg.get('price', current_price or 0)
             leg_payoffs = price_range - purchase_price
             payoffs += sign * leg_payoffs * quantity
     
-    return payoffs * 100  # Multiply by contract size (100 shares per contract)
+    # Multiply by contract size (100 shares per contract) for options
+    return payoffs * 100
 
 def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry, 
-                                   risk_free_rate=0.03, volatility=0.3):
+                                    risk_free_rate=0.03, volatility=0.3):
     """
     Calculate the current value of a strategy over a range of prices before expiration.
     Uses current_price for market value calculations and price for cost basis.
     
     Parameters:
-    strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
-    price_range (array): Array of prices to calculate value for
-    days_to_expiry (int): Days remaining until expiration
-    risk_free_rate (float): Annualized risk-free interest rate
-    volatility (float): Implied volatility
-    
+        strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
+        price_range (array): Array of prices to calculate value for
+        days_to_expiry (int): Days remaining until expiration
+        risk_free_rate (float): Annualized risk-free interest rate
+        volatility (float): Implied volatility if not specified in legs
+        
     Returns:
-    list: Current values for each price in price_range
+        array: Current values for each price in price_range
     """
-    values = np.zeros(len(price_range))
-    years_to_expiry = days_to_expiry / 365
+    # Convert price_range to numpy array if it's not already
+    price_range = np.array(price_range)
     
+    # Initialize values array with zeros
+    values = np.zeros(len(price_range))
+    
+    # Convert days to years
+    years_to_expiry = max(days_to_expiry, 0) / 365
+    
+    # Validate strategy_legs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to calculate_strategy_current_value")
+        return values
+    
+    # Calculate value for each leg
     for leg in strategy_legs:
-        leg_type = leg.get('type')
-        position = leg.get('position')
-        strike = leg.get('strike')
+        # Validate leg format
+        if not isinstance(leg, dict):
+            logger.warning(f"Invalid leg format in calculate_strategy_current_value: {leg}")
+            continue
         
-        # Use price for cost basis and current_price for current value
+        # Extract leg parameters with defaults for missing values
+        leg_type = leg.get('type', '')
+        position = leg.get('position', '')
+        strike = leg.get('strike', 0)
         entry_premium = leg.get('price', 0)
-        current_premium = leg.get('current_price', entry_premium)  # Default to entry if current not available
+        current_premium = leg.get('current_price', entry_premium)
         quantity = leg.get('quantity', 1)
+        leg_iv = leg.get('iv', volatility)
         
-        # Sign based on position (long or short)
+        # Skip invalid legs
+        if not leg_type or not position:
+            continue
+        
+        # Determine position sign
         sign = 1 if position == 'long' else -1
         
-        if leg_type == 'call' or leg_type == 'put':
-            # Calculate current option value using Black-Scholes
+        # Calculate current value based on leg type
+        if leg_type in ['call', 'put']:
+            # For option legs, calculate theoretical value at each price point
             for i, price in enumerate(price_range):
-                option_value = black_scholes(
-                    leg_type, price, strike, years_to_expiry, risk_free_rate, volatility
-                )
+                if years_to_expiry <= 0:
+                    # At or past expiration, use intrinsic value
+                    if leg_type == 'call':
+                        option_value = max(0, price - strike)
+                    else:  # put
+                        option_value = max(0, strike - price)
+                else:
+                    # Before expiration, use Black-Scholes
+                    option_value = black_scholes(
+                        leg_type, price, strike, years_to_expiry, risk_free_rate, leg_iv
+                    )
                 
                 # Calculate unrealized P/L: current theoretical value - entry price
                 unrealized_pl = option_value - entry_premium
@@ -129,46 +208,69 @@ def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry,
             purchase_price = leg.get('price', price_range[0])
             values += sign * (price_range - purchase_price) * quantity
     
-    return values * 100  # Multiply by contract size
+    # Multiply by contract size (100 shares per contract) for options
+    return values * 100
 
 def create_unrealized_pl_table(strategy_legs, current_price):
     """
     Create a table showing unrealized P/L for each leg of the strategy.
     
     Parameters:
-    strategy_legs (list): List of leg dictionaries
-    current_price (float): Current stock price
-    
+        strategy_legs (list): List of leg dictionaries
+        current_price (float): Current stock price
+        
     Returns:
-    pd.DataFrame: DataFrame with unrealized P/L analysis
+        pd.DataFrame: DataFrame with unrealized P/L analysis
     """
+    # Validate inputs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to create_unrealized_pl_table")
+        return pd.DataFrame()
+    
+    if current_price is None or not isinstance(current_price, (int, float)):
+        logger.warning(f"Invalid current_price provided to create_unrealized_pl_table: {current_price}")
+        current_price = 0
+    
     # Create DataFrame
     pl_data = []
     
     total_entry_cost = 0
     total_current_value = 0
     
+    # Process each leg
     for i, leg in enumerate(strategy_legs):
-        leg_type = leg.get('type')
-        position = leg.get('position')
+        # Skip invalid legs
+        if not isinstance(leg, dict):
+            continue
+        
+        # Extract leg parameters
+        leg_type = leg.get('type', '')
+        position = leg.get('position', '')
         quantity = leg.get('quantity', 1)
+        
+        # Skip invalid legs
+        if not leg_type or not position:
+            continue
         
         # Get prices
         entry_price = leg.get('price', 0)
         current_market_price = leg.get('current_price', entry_price)
         
+        # Calculate contract multiplier
+        multiplier = 100 if leg_type in ['call', 'put'] else 1
+        
         # Calculate leg costs/values
         if position == 'long':
-            entry_cost = entry_price * quantity * 100
-            current_value = current_market_price * quantity * 100
+            entry_cost = entry_price * quantity * multiplier
+            current_value = current_market_price * quantity * multiplier
             sign = 1
         else:  # short
-            entry_cost = -entry_price * quantity * 100
-            current_value = -current_market_price * quantity * 100
+            entry_cost = -entry_price * quantity * multiplier
+            current_value = -current_market_price * quantity * multiplier
             sign = -1
         
         # Calculate P/L
-        unrealized_pl = sign * (current_value - entry_cost)
+        unrealized_pl = current_value - entry_cost
         
         # Format type and position
         if leg_type == 'call':
@@ -181,6 +283,10 @@ def create_unrealized_pl_table(strategy_legs, current_price):
                 desc += f" @ ${leg['strike']:.2f}"
         else:  # stock
             desc = f"{position.capitalize()} Stock"
+        
+        # Add expiration date if available
+        if 'expiry' in leg and leg.get('expiry'):
+            desc += f" ({leg['expiry']})"
         
         # Add to data
         pl_data.append({
@@ -198,14 +304,15 @@ def create_unrealized_pl_table(strategy_legs, current_price):
     
     # Add total row
     total_pl = total_current_value - total_entry_cost
-    pl_data.append({
-        'Leg': "Total",
-        'Description': "All Legs",
-        'Entry Price': f"${abs(total_entry_cost):.2f}",
-        'Current Price': f"${abs(total_current_value):.2f}",
-        'Unrealized P/L': f"${total_pl:.2f}",
-        'P/L %': f"{(total_pl/abs(total_entry_cost))*100:.1f}%" if total_entry_cost != 0 else "N/A"
-    })
+    if pl_data:  # Only add total if there are valid legs
+        pl_data.append({
+            'Leg': "Total",
+            'Description': "All Legs",
+            'Entry Price': f"${abs(total_entry_cost):.2f}",
+            'Current Price': f"${abs(total_current_value):.2f}",
+            'Unrealized P/L': f"${total_pl:.2f}",
+            'P/L %': f"{(total_pl/abs(total_entry_cost))*100:.1f}%" if total_entry_cost != 0 else "N/A"
+        })
     
     return pd.DataFrame(pl_data)
 
@@ -215,16 +322,25 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     Create an interactive plotly payoff chart for an options strategy.
     
     Parameters:
-    strategy_name (str): Name of the strategy for the chart title
-    strategy_legs (list): List of leg dictionaries
-    current_price (float): Current stock price
-    price_range (array): Optional price range, or will be generated based on current_price
-    days_to_expiry (int): Days to expiration, for calculating current value
-    show_current_value (bool): Whether to show current value line in addition to expiration
-    
+        strategy_name (str): Name of the strategy for the chart title
+        strategy_legs (list): List of leg dictionaries
+        current_price (float): Current stock price
+        price_range (array): Optional price range, or will be generated based on current_price
+        days_to_expiry (int): Days to expiration, for calculating current value
+        show_current_value (bool): Whether to show current value line in addition to expiration
+        
     Returns:
-    go.Figure: Plotly figure object
+        go.Figure: Plotly figure object
     """
+    # Validate inputs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to create_payoff_chart")
+        return go.Figure()
+    
+    if current_price is None or not isinstance(current_price, (int, float)):
+        logger.warning(f"Invalid current_price provided to create_payoff_chart: {current_price}")
+        current_price = 100  # Default value
+    
     # Generate price range if not provided
     if price_range is None:
         price_range_pct = 0.3  # 30% up and down from current price
@@ -247,11 +363,11 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
         line=dict(color='blue', width=2)
     ))
     
-    # Add current value line if days_to_expiry is provided
+    # Add current value line if days_to_expiry is provided and we're before expiration
     if show_current_value and days_to_expiry is not None and days_to_expiry > 0:
         # Get average implied volatility from legs
         ivs = [leg.get('iv', 0.3) for leg in strategy_legs 
-              if leg.get('type') in ('call', 'put')]
+              if leg.get('type') in ('call', 'put') and 'iv' in leg]
         avg_iv = sum(ivs) / len(ivs) if ivs else 0.3
         
         current_values = calculate_strategy_current_value(
@@ -263,7 +379,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
             y=current_values,
             mode='lines',
             name=f'Current Value (T-{days_to_expiry})',
-            line=dict(color='purple', width=2)
+            line=dict(color='purple', width=2, dash='dash')
         ))
     
     # Add zero line
@@ -284,15 +400,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     )
     
     # Find breakeven points (where the expiration P/L crosses zero)
-    breakeven_points = []
-    for i in range(1, len(price_range)):
-        if (payoffs[i-1] <= 0 and payoffs[i] > 0) or (payoffs[i-1] >= 0 and payoffs[i] < 0):
-            # Linear interpolation to find more precise breakeven
-            x0, y0 = price_range[i-1], payoffs[i-1]
-            x1, y1 = price_range[i], payoffs[i]
-            if y1 - y0 != 0:  # Avoid division by zero
-                breakeven = x0 + (x1 - x0) * (-y0) / (y1 - y0)
-                breakeven_points.append(breakeven)
+    breakeven_points = find_breakeven_points(price_range, payoffs)
     
     # Add breakeven annotations
     for i, be in enumerate(breakeven_points):
@@ -351,31 +459,78 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     
     return fig
 
+def find_breakeven_points(price_range, payoffs):
+    """
+    Find breakeven points in a strategy (where payoff crosses zero).
+    
+    Parameters:
+        price_range (array): Array of prices
+        payoffs (array): Array of payoff values corresponding to prices
+        
+    Returns:
+        list: List of breakeven prices
+    """
+    breakeven_points = []
+    
+    # Validate inputs
+    if len(price_range) != len(payoffs) or len(price_range) < 2:
+        return breakeven_points
+    
+    # Find zero crossings
+    for i in range(1, len(price_range)):
+        if (payoffs[i-1] <= 0 and payoffs[i] > 0) or (payoffs[i-1] >= 0 and payoffs[i] < 0):
+            # Linear interpolation to find more precise breakeven
+            x0, y0 = price_range[i-1], payoffs[i-1]
+            x1, y1 = price_range[i], payoffs[i]
+            
+            if y1 - y0 != 0:  # Avoid division by zero
+                breakeven = x0 + (x1 - x0) * (-y0) / (y1 - y0)
+                breakeven_points.append(breakeven)
+    
+    return breakeven_points
+
 def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.03, volatility=0.3):
     """
     Create a heatmap showing strategy PnL over different price points and days to expiry.
     
     Parameters:
-    strategy_legs (list): List of leg dictionaries
-    current_price (float): Current stock price  
-    expiry_date (datetime): Expiration date
-    risk_free_rate (float): Annualized risk-free interest rate
-    volatility (float): Implied volatility
-    
+        strategy_legs (list): List of leg dictionaries
+        current_price (float): Current stock price  
+        expiry_date (datetime|str): Expiration date
+        risk_free_rate (float): Annualized risk-free interest rate
+        volatility (float): Implied volatility
+        
     Returns:
-    go.Figure: Plotly figure object with heatmap
+        go.Figure: Plotly figure object with heatmap
     """
+    # Validate inputs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to create_heatmap")
+        return go.Figure()
+    
+    if current_price is None or not isinstance(current_price, (int, float)):
+        logger.warning(f"Invalid current_price provided to create_heatmap: {current_price}")
+        current_price = 100  # Default value
+    
     # Generate price range
     price_range_pct = 0.3  # 30% up and down
     min_price = current_price * (1 - price_range_pct)
     max_price = current_price * (1 + price_range_pct)
     prices = np.linspace(min_price, max_price, 30)
     
-    # Generate days range
+    # Handle expiry date
     current_date = datetime.now().date()
     if isinstance(expiry_date, str):
-        expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+        try:
+            expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+        except ValueError:
+            logger.warning(f"Invalid expiry_date format: {expiry_date}")
+            expiry_date = current_date + timedelta(days=30)  # Default to 30 days
+    
     total_days = (expiry_date - current_date).days
+    if total_days < 0:
+        logger.warning("Expiry date is in the past")
+        total_days = 0
     
     # Create days array from now to expiry
     if total_days <= 1:
@@ -394,13 +549,17 @@ def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.0
     # Calculate PnL for each price and day combination
     for i, day in enumerate(days):
         days_to_expiry = total_days - day
-        years_to_expiry = days_to_expiry / 365
         
         if days_to_expiry == 0:  # At expiration
             z[i, :] = calculate_strategy_payoff(strategy_legs, prices, current_price)
         else:  # Before expiration
+            # Get average implied volatility from legs
+            ivs = [leg.get('iv', volatility) for leg in strategy_legs 
+                  if leg.get('type') in ('call', 'put') and 'iv' in leg]
+            avg_iv = sum(ivs) / len(ivs) if ivs else volatility
+            
             z[i, :] = calculate_strategy_current_value(
-                strategy_legs, prices, days_to_expiry, risk_free_rate, volatility
+                strategy_legs, prices, days_to_expiry, risk_free_rate, avg_iv
             )
     
     # Create the heatmap figure
@@ -438,14 +597,23 @@ def create_risk_table(strategy_legs, current_price, days_to_expiry, volatility=0
     Create a table showing potential P/L at different price points.
     
     Parameters:
-    strategy_legs (list): List of leg dictionaries
-    current_price (float): Current stock price
-    days_to_expiry (int): Days to expiration
-    volatility (float): Implied volatility
-    
+        strategy_legs (list): List of leg dictionaries
+        current_price (float): Current stock price
+        days_to_expiry (int): Days to expiration
+        volatility (float): Implied volatility
+        
     Returns:
-    pd.DataFrame: DataFrame with risk analysis
+        pd.DataFrame: DataFrame with risk analysis
     """
+    # Validate inputs
+    if not strategy_legs or not isinstance(strategy_legs, list):
+        logger.warning("Invalid strategy_legs provided to create_risk_table")
+        return pd.DataFrame()
+    
+    if current_price is None or not isinstance(current_price, (int, float)):
+        logger.warning(f"Invalid current_price provided to create_risk_table: {current_price}")
+        current_price = 100  # Default value
+    
     # Generate price points: -30%, -20%, -10%, -5%, current, +5%, +10%, +20%, +30%
     change_pcts = [-0.3, -0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2, 0.3]
     prices = [current_price * (1 + pct) for pct in change_pcts]
@@ -462,8 +630,13 @@ def create_risk_table(strategy_legs, current_price, days_to_expiry, volatility=0
     
     # Calculate current value if days_to_expiry > 0
     if days_to_expiry > 0:
+        # Get average implied volatility from legs
+        ivs = [leg.get('iv', volatility) for leg in strategy_legs 
+              if leg.get('type') in ('call', 'put') and 'iv' in leg]
+        avg_iv = sum(ivs) / len(ivs) if ivs else volatility
+        
         current_values = calculate_strategy_current_value(
-            strategy_legs, prices, days_to_expiry, volatility=volatility
+            strategy_legs, prices, days_to_expiry, volatility=avg_iv
         )
         df.loc[f"Current (T-{days_to_expiry})"] = [f"${p:.2f}" for p in current_values]
     

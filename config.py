@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Application information
 APP_NAME = "Options Strategy Calculator"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 APP_DESCRIPTION = "A comprehensive Python-based web application for analyzing and visualizing options trading strategies using real-time market data."
 APP_AUTHOR = "Options Analyzer Team"
 
@@ -90,7 +90,7 @@ MIN_PRICE_POINTS = 50
 MAX_PRICE_POINTS = 200
 DEFAULT_PRICE_POINTS = 100
 
-# Strategy categories and types
+# Strategy categories and types mapping (for UI display)
 STRATEGY_CATEGORIES = {
     "Basic Strategies": [
         "Long Call",
@@ -123,6 +123,33 @@ STRATEGY_CATEGORIES = {
         "Custom - 3 Legs",
         "Custom - 4 Legs"
     ]
+}
+
+# Strategy name to function name mapping
+STRATEGY_NAME_TO_TYPE = {
+    "Long Call": "long_call",
+    "Long Put": "long_put",
+    "Covered Call": "covered_call",
+    "Cash Secured Put": "cash_secured_put",
+    "Naked Call": "naked_call",
+    "Naked Put": "naked_put",
+    "Bull Call Spread": "bull_call_spread",
+    "Bear Put Spread": "bear_put_spread",
+    "Bull Put Credit Spread": "bull_put_spread",
+    "Bear Call Credit Spread": "bear_call_spread",
+    "Calendar Spread": "calendar_spread",
+    "Poor Man's Covered Call": "poor_mans_covered_call",
+    "Ratio Back Spread": "ratio_backspread",
+    "Iron Condor": "iron_condor",
+    "Butterfly": "butterfly",
+    "Straddle": "straddle",
+    "Strangle": "strangle",
+    "Collar": "collar",
+    "Diagonal Spread": "diagonal_spread",
+    "Double Diagonal Spread": "double_diagonal_spread",
+    "Custom - 2 Legs": "custom",
+    "Custom - 3 Legs": "custom",
+    "Custom - 4 Legs": "custom"
 }
 
 # Help text for strategy information
@@ -238,7 +265,85 @@ STRATEGY_INFO = {
         - **Example**: Buy XYZ $40 Call for $5.00, sell 2 XYZ $50 Calls for $2.00 each, 
                        buy XYZ $60 Call for $0.50
     """,
-    # Add more strategy descriptions as needed
+    "Straddle": """
+        **Straddle**: Buy a call and a put at the same strike and expiration.
+        
+        - **Max Loss**: Limited to the total premium paid
+        - **Max Gain**: Unlimited (price moves far from strike in either direction)
+        - **Breakeven**: Strike + total premium AND Strike - total premium
+        - **When to Use**: Expecting significant movement in either direction
+        - **Example**: Buy XYZ $50 Call for $2.00 and XYZ $50 Put for $2.00
+    """,
+    "Strangle": """
+        **Strangle**: Buy an OTM call and an OTM put with the same expiration.
+        
+        - **Max Loss**: Limited to the total premium paid
+        - **Max Gain**: Unlimited (price moves far from strikes in either direction)
+        - **Breakeven**: Call strike + total premium AND Put strike - total premium
+        - **When to Use**: Expecting significant movement in either direction, cheaper than straddle
+        - **Example**: Buy XYZ $55 Call for $1.00 and XYZ $45 Put for $1.00
+    """,
+    "Collar": """
+        **Collar**: Own stock, buy a protective put, and sell a covered call.
+        
+        - **Max Loss**: Limited to (stock price - put strike + put premium - call premium)
+        - **Max Gain**: Limited to (call strike - stock price + call premium - put premium)
+        - **When to Use**: Protect a long stock position with limited cost
+        - **Example**: Own XYZ at $50, buy XYZ $45 Put for $1.00, sell XYZ $55 Call for $1.00
+    """,
+    "Diagonal Spread": """
+        **Diagonal Spread**: Buy a longer-term option at one strike, sell a shorter-term option at a different strike.
+        
+        - **Max Loss**: Limited to the net debit paid
+        - **Max Gain**: Varies based on price movements
+        - **When to Use**: Exploit term structure of volatility, reduce cost of long options
+        - **Example**: Buy XYZ $50 Call expiring in 3 months for $3.00, sell XYZ $55 Call expiring in 1 month for $1.00
+    """,
+    "Calendar Spread": """
+        **Calendar Spread**: Sell a near-term option and buy a farther-term option at the same strike.
+        
+        - **Max Loss**: Limited to the net debit paid
+        - **Max Gain**: Varies based on underlying price at near-term expiration
+        - **When to Use**: Neutral, expecting little movement in the near term
+        - **Example**: Sell XYZ $50 Call expiring in 1 month for $1.50, buy XYZ $50 Call expiring in 3 months for $3.00
+    """,
+    "Poor Man's Covered Call": """
+        **Poor Man's Covered Call**: Buy a deep ITM long-term call and sell an OTM short-term call.
+        
+        - **Max Loss**: Limited to the net debit paid for the long call minus credit received
+        - **Max Gain**: Limited to (short call strike - long call strike) + (credit received - debit paid)
+        - **When to Use**: Similar to covered call but requires less capital
+        - **Example**: Buy XYZ $40 Call expiring in 6 months for $12.00, sell XYZ $55 Call expiring in 1 month for $1.00
+    """,
+    "Ratio Back Spread": """
+        **Ratio Back Spread**: Sell 1 option at a lower strike and buy multiple options at a higher strike.
+        
+        - **Max Loss**: Occurs between the two strikes
+        - **Max Gain**: Potentially unlimited on the upside (for call ratio spreads)
+        - **When to Use**: Expecting a large move in one direction
+        - **Example**: Sell 1 XYZ $50 Call for $2.00, buy 2 XYZ $55 Calls for $1.00 each
+    """,
+    "Custom - 2 Legs": """
+        **Custom 2-Leg Strategy**: Build your own strategy with 2 legs.
+        
+        - Configure each leg with option type, position (long/short), strike, quantity, and more
+        - Mix and match calls, puts, and stock positions
+        - Analyze complex or non-standard strategies
+    """,
+    "Custom - 3 Legs": """
+        **Custom 3-Leg Strategy**: Build your own strategy with 3 legs.
+        
+        - Configure each leg with option type, position (long/short), strike, quantity, and more
+        - Mix and match calls, puts, and stock positions
+        - Analyze complex or non-standard strategies
+    """,
+    "Custom - 4 Legs": """
+        **Custom 4-Leg Strategy**: Build your own strategy with 4 legs.
+        
+        - Configure each leg with option type, position (long/short), strike, quantity, and more
+        - Mix and match calls, puts, and stock positions
+        - Analyze complex or non-standard strategies
+    """
 }
 
 # Example tickers for demonstration
