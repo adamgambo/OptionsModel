@@ -51,6 +51,12 @@ def black_scholes(option_type, S, K, t, r, sigma):
         K = 0.01
 
     try:
+        # Validate inputs to prevent mathematical errors
+        if S <= 0:
+            S = 0.01
+        if K <= 0:
+            K = 0.01
+        
         # Calculate d1 and d2
         d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))
         d2 = d1 - sigma * np.sqrt(t)

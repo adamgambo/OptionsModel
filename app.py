@@ -1199,6 +1199,21 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
         st.info("Configure your options strategy to see analysis here")
         return
     
+    # Ensure days_to_expiry is never None
+    if days_to_expiry is None:
+        if expiry_date:
+            try:
+                if isinstance(expiry_date, str):
+                    expiry_datetime = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                else:
+                    expiry_datetime = expiry_date
+                today = datetime.now().date()
+                days_to_expiry = max(0, (expiry_datetime - today).days)
+            except (ValueError, TypeError):
+                days_to_expiry = 0
+        else:
+            days_to_expiry = 0
+    
     # Create tabs for different analysis views with improved design
     tabs = st.tabs([
         "📈 Payoff Diagram", 
@@ -1237,7 +1252,7 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             
             # Calculate P/L before expiration if applicable
             current_values = None
-            if days_to_expiry > 0:
+            if days_to_expiry is not None and days_to_expiry > 0:
                 # Get average implied volatility from strategy legs
                 volatility = calculate_strategy_volatility(strategy_legs)
                 
@@ -1415,7 +1430,7 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             df["P/L at Expiration"] = [f"${p:.2f}" for p in expiry_payoffs]
             
             # Calculate current value if days_to_expiry > 0
-            if days_to_expiry > 0:
+            if days_to_expiry is not None and days_to_expiry > 0:
                 current_values = calculate_strategy_current_value(
                     strategy_legs, prices, days_to_expiry, volatility=volatility
                 )
@@ -1595,7 +1610,7 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             logger.error(f"Error creating risk analysis: {str(e)}", exc_info=True)
     
     with tabs[2]:  # Time Decay Analysis
-        if days_to_expiry > 0:
+        if days_to_expiry is not None and days_to_expiry > 0:
             try:
                 st.subheader("Time Decay Analysis")
                 
