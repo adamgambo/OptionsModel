@@ -191,7 +191,7 @@ def configure_custom_strategy(ticker, current_price, expiration_dates, calls_df,
                     template, current_price, selected_expiry, days_to_expiry
                 )
                 st.success(f"Loaded {template} template")
-                st.experimental_rerun()
+                st.rerun()
 
     # Strategy analysis preview
     if st.session_state.custom_strategy_legs:
@@ -259,7 +259,7 @@ def configure_custom_strategy(ticker, current_price, expiration_dates, calls_df,
                 if st.button("Load Strategy"):
                     st.session_state.custom_strategy_legs = st.session_state.saved_strategies[saved_strategy].copy()
                     st.success(f"Strategy '{saved_strategy}' loaded successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 st.info("No saved strategies found.")
     
@@ -397,7 +397,7 @@ def configure_custom_strategy(ticker, current_price, expiration_dates, calls_df,
                     # Button to remove this leg
                     if st.button("🗑️ Remove", key=f"remove_{i}"):
                         st.session_state.custom_strategy_legs.pop(i)
-                        st.experimental_rerun()
+                        st.rerun()
                 
                 # Advanced options in an expander
                 with st.expander("Advanced Options"):
@@ -506,7 +506,7 @@ def configure_custom_strategy(ticker, current_price, expiration_dates, calls_df,
             }
             
             st.session_state.custom_strategy_legs.append(new_leg)
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.warning(f"Maximum of {max_legs} legs reached")
     

@@ -94,7 +94,7 @@ def handle_ticker_selection():
                 for i, recent_ticker in enumerate(recent):
                     if cols[i].button(recent_ticker, key=f"recent_{i}"):
                         ticker = recent_ticker
-                        st.experimental_rerun()
+                        st.rerun()
         
         # Load stock data when ticker is provided
         if ticker:
