@@ -9,6 +9,183 @@ import time
 import os
 import logging
 
+# Add this function near the top of app.py, after imports
+
+def apply_theme():
+    """Apply the selected theme by injecting CSS."""
+    theme = st.session_state.get('theme', 'light')
+    
+    if theme == 'dark':
+        # Dark theme CSS
+        dark_css = """
+        <style>
+        .stApp {
+            background-color: #121212;
+            color: #E0E0E0;
+        }
+        
+        .stSidebar {
+            background-color: #1E1E1E;
+        }
+        
+        .stSidebar .stSelectbox > div > div {
+            background-color: #2D2D2D;
+            color: #E0E0E0;
+        }
+        
+        .stSidebar .stTextInput > div > div > input {
+            background-color: #2D2D2D;
+            color: #E0E0E0;
+        }
+        
+        .stSidebar .stRadio > div {
+            color: #E0E0E0;
+        }
+        
+        .main-header {
+            color: #90CAF9 !important;
+        }
+        
+        .subtitle {
+            color: #B0BEC5 !important;
+        }
+        
+        .stock-info-card {
+            background-color: #1E1E1E !important;
+            border-left-color: #90CAF9 !important;
+            color: #E0E0E0 !important;
+        }
+        
+        .stock-ticker {
+            color: #90CAF9 !important;
+        }
+        
+        .stock-name, .stock-meta {
+            color: #B0BEC5 !important;
+        }
+        
+        .price-card {
+            background-color: #1E1E1E !important;
+            color: #E0E0E0 !important;
+        }
+        
+        .metric-card {
+            background-color: #1E1E1E !important;
+            color: #E0E0E0 !important;
+        }
+        
+        .mobile-card {
+            background-color: #1E1E1E !important;
+            color: #E0E0E0 !important;
+        }
+        
+        .leg-card {
+            background-color: #1E1E1E !important;
+            color: #E0E0E0 !important;
+        }
+        
+        .stMetric {
+            background-color: #1E1E1E !important;
+        }
+        
+        .stMetric > div {
+            color: #E0E0E0 !important;
+        }
+        
+        .stTab {
+            color: #E0E0E0 !important;
+        }
+        
+        .profit {
+            color: #81C784 !important;
+        }
+        
+        .loss {
+            color: #E57373 !important;
+        }
+        
+        /* Plotly chart dark theme */
+        .js-plotly-plot .plotly .modebar {
+            background-color: #1E1E1E !important;
+        }
+        
+        /* Dataframe styling */
+        .stDataFrame {
+            background-color: #1E1E1E !important;
+        }
+        
+        /* Expander styling */
+        .stExpander {
+            background-color: #1E1E1E !important;
+            border-color: #333333 !important;
+        }
+        
+        .stExpander > div > div > div > div {
+            color: #E0E0E0 !important;
+        }
+        </style>
+        """
+        st.markdown(dark_css, unsafe_allow_html=True)
+    else:
+        # Light theme CSS (default)
+        light_css = """
+        <style>
+        .stApp {
+            background-color: #FFFFFF;
+            color: #212121;
+        }
+        
+        .main-header {
+            color: #1E88E5 !important;
+        }
+        
+        .subtitle {
+            color: #616161 !important;
+        }
+        
+        .profit {
+            color: #4CAF50 !important;
+        }
+        
+        .loss {
+            color: #F44336 !important;
+        }
+        </style>
+        """
+        st.markdown(light_css, unsafe_allow_html=True)
+
+# Update the theme selector section in the sidebar to this:
+
+with st.sidebar:
+    # Add logo and app title with better styling
+    if os.path.exists("assets/logo.png"):
+        st.image("assets/logo.png", width=100)
+    st.title("Options Strategy Calculator")
+    
+    # Theme selector
+    theme_options = ["Light", "Dark"]
+    current_theme = st.session_state.get('theme', 'light')
+    current_index = 0 if current_theme == 'light' else 1
+    
+    new_theme = st.radio(
+        "Theme", 
+        theme_options,
+        index=current_index,
+        horizontal=True,
+        key="theme_selector"
+    )
+    
+    # Update theme and apply it
+    new_theme_lower = new_theme.lower()
+    if st.session_state.get('theme') != new_theme_lower:
+        st.session_state['theme'] = new_theme_lower
+        st.rerun()  # Rerun to apply theme changes
+    
+    st.divider()
+
+# Add this line right after the page configuration and before show_header()
+apply_theme()
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
