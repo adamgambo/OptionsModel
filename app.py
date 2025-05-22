@@ -293,13 +293,13 @@ def configure_strategy(ticker, current_price, expirations):
                     tab1, tab2 = st.tabs(["Calls", "Puts"])
                     
                     with tab1:
-                        display_df = calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
+                        display_df = calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']].copy()
                         display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
                         display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
                         st.dataframe(display_df, use_container_width=True)
                     
                     with tab2:
-                        display_df = puts_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']]
+                        display_df = puts_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']].copy()
                         display_df.columns = ['Strike', 'Last', 'Bid', 'Ask', 'Volume', 'OI', 'IV']
                         display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
                         st.dataframe(display_df, use_container_width=True)
@@ -1603,12 +1603,22 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                 # Get volatility
                 volatility = calculate_strategy_volatility(strategy_legs)
                 
-                # Create time points selector
+                # Create time points selector - handle edge cases
+                if days_to_expiry <= 3:
+                    # For very short-term options, show all days without a slider
+                    time_points = days_to_expiry + 1
+                    st.info(f"Showing all {time_points} days for this short-term option")
+                else:
+                    # For longer-term options, allow selection with slider
+                    min_points = 3
+                    max_points = min(10, days_to_expiry + 1)
+                    default_points = min(5, max_points)
+    
                 time_points = st.slider(
                     "Time Points",
-                    min_value=3,
-                    max_value=min(10, days_to_expiry + 1),
-                    value=min(5, days_to_expiry + 1),
+                    min_value=min_points,
+                    max_value=max_points,
+                    value=default_points,
                     help="Number of time points to analyze"
                 )
                 
