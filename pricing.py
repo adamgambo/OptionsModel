@@ -42,6 +42,14 @@ def black_scholes(option_type, S, K, t, r, sigma):
     r = float(r)
     sigma = float(sigma)
     
+    # Check for invalid parameters that would cause mathematical errors
+    if S <= 0:
+        logger.warning(f"Invalid stock price S={S}. Setting to 0.01")
+        S = 0.01
+    if K <= 0:
+        logger.warning(f"Invalid strike price K={K}. Setting to 0.01")
+        K = 0.01
+
     try:
         # Calculate d1 and d2
         d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))

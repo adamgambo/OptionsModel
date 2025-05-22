@@ -1614,13 +1614,13 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                     max_points = min(10, days_to_expiry + 1)
                     default_points = min(5, max_points)
     
-                time_points = st.slider(
-                    "Time Points",
-                    min_value=min_points,
-                    max_value=max_points,
-                    value=default_points,
-                    help="Number of time points to analyze"
-                )
+                    time_points = st.slider(
+                        "Time Points",
+                        min_value=min_points,
+                        max_value=max_points,
+                        value=default_points,
+                        help="Number of time points to analyze"
+                    )
                 
                 # Generate days array
                 days = []
