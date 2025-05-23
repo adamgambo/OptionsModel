@@ -9,7 +9,23 @@ import time
 import os
 import logging
 
-# Add this function near the top of app.py, after imports
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Import custom modules
+from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
+from strategies.strategies_factory import create_strategy
+from pricing import calculate_implied_volatility, calculate_greeks
+from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table
+
+# Page configuration with improved styling
+st.set_page_config(
+    page_title="Options Strategy Calculator",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 def apply_theme():
     """Apply the selected theme by injecting CSS."""
@@ -185,24 +201,6 @@ with st.sidebar:
 
 # Add this line right after the page configuration and before show_header()
 apply_theme()
-
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# Import custom modules
-from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
-from strategies.strategies_factory import create_strategy
-from pricing import calculate_implied_volatility, calculate_greeks
-from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table
-
-# Page configuration with improved styling
-st.set_page_config(
-    page_title="Options Strategy Calculator",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Add custom CSS for enhanced styling
 with open('styles/main.css') as f:

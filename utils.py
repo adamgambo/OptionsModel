@@ -14,6 +14,42 @@ from pricing import black_scholes, calculate_greeks
 # Setup logging
 logger = logging.getLogger(__name__)
 
+def get_chart_theme():
+    """Get the current chart theme based on session state."""
+    theme = st.session_state.get('theme', 'light')
+    
+    if theme == 'dark':
+        return {
+            'template': 'plotly_dark',
+            'paper_bgcolor': '#121212',
+            'plot_bgcolor': '#1E1E1E',
+            'font_color': '#E0E0E0',
+            'grid_color': '#333333'
+        }
+    else:
+        return {
+            'template': 'plotly_white',
+            'paper_bgcolor': '#FFFFFF',
+            'plot_bgcolor': '#FFFFFF',
+            'font_color': '#212121',
+            'grid_color': '#E0E0E0'
+        }
+
+def apply_chart_theme(fig):
+    """Apply the current theme to a plotly figure."""
+    theme_config = get_chart_theme()
+    
+    fig.update_layout(
+        template=theme_config['template'],
+        paper_bgcolor=theme_config['paper_bgcolor'],
+        plot_bgcolor=theme_config['plot_bgcolor'],
+        font=dict(color=theme_config['font_color']),
+        xaxis=dict(gridcolor=theme_config['grid_color']),
+        yaxis=dict(gridcolor=theme_config['grid_color'])
+    )
+    
+    return fig
+
 def annualized_days(expiration_date, current_date=None):
     """
     Convert days to expiration to annualized fraction.
@@ -360,7 +396,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
         y=payoffs,
         mode='lines',
         name='P/L at Expiration',
-        line=dict(color='blue', width=2)
+        line=dict(color='#1f77b4', width=2)
     ))
     
     # Add current value line if days_to_expiry is provided and we're before expiration
@@ -379,7 +415,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
             y=current_values,
             mode='lines',
             name=f'Current Value (T-{days_to_expiry})',
-            line=dict(color='purple', width=2, dash='dash')
+            line=dict(color='#2ca02c', width=2, dash='dash')
         ))
     
     # Add zero line
@@ -387,7 +423,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
         type="line",
         x0=min(price_range), x1=max(price_range),
         y0=0, y1=0,
-        line=dict(color="black", width=1)
+        line=dict(color="gray", width=1)
     )
     
     # Add current price line
@@ -396,7 +432,7 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
         x0=current_price, x1=current_price,
         y0=min(min(payoffs), 0) * 1.1, 
         y1=max(max(payoffs), 0) * 1.1,
-        line=dict(color="red", width=1, dash="dash")
+        line=dict(color="#d62728", width=1, dash="dash")
     )
     
     # Find breakeven points (where the expiration P/L crosses zero)
@@ -432,15 +468,19 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     if breakeven_points:
         metrics_text += "Breakeven: " + ", ".join([f"${be:.2f}" for be in breakeven_points])
     
+    # Get theme colors for annotation background
+    theme_config = get_chart_theme()
+    
     fig.add_annotation(
         x=min(price_range) + (max(price_range) - min(price_range)) * 0.05,
         y=max(max(payoffs), 0) * 0.9,
         text=metrics_text,
         showarrow=False,
         align="left",
-        bgcolor="rgba(255, 255, 255, 0.8)",
-        bordercolor="black",
-        borderwidth=1
+        bgcolor=theme_config['paper_bgcolor'],
+        bordercolor=theme_config['font_color'],
+        borderwidth=1,
+        font=dict(color=theme_config['font_color'])
     )
     
     # Update layout
@@ -456,6 +496,9 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
             x=0.01
         )
     )
+    
+    # Apply theme
+    fig = apply_chart_theme(fig)
     
     return fig
 
@@ -577,7 +620,7 @@ def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.0
         type="line",
         x0=current_price, x1=current_price,
         y0=min(days), y1=max(days),
-        line=dict(color="black", width=1, dash="dash")
+        line=dict(color="yellow", width=2, dash="dash")
     )
     
     # Update layout
@@ -589,6 +632,9 @@ def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.0
             tickformat="$.2f"
         )
     )
+    
+    # Apply theme
+    fig = apply_chart_theme(fig)
     
     return fig
 
