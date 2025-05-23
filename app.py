@@ -27,117 +27,351 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apply theme
 def apply_theme():
     """Apply the selected theme by injecting CSS."""
     theme = st.session_state.get('theme', 'light')
     
     if theme == 'dark':
-        # Dark theme CSS
+        # Enhanced dark theme CSS with better readability
         dark_css = """
         <style>
+        /* Base dark theme */
         .stApp {
-            background-color: #121212;
-            color: #E0E0E0;
+            background-color: #0E1117;
+            color: #FAFAFA;
         }
         
+        /* Sidebar styling */
         .stSidebar {
-            background-color: #1E1E1E;
+            background-color: #262730;
         }
         
         .stSidebar .stSelectbox > div > div {
-            background-color: #2D2D2D;
-            color: #E0E0E0;
+            background-color: #3A3D48;
+            color: #FAFAFA;
+            border: 1px solid #4A4E5A;
         }
         
         .stSidebar .stTextInput > div > div > input {
-            background-color: #2D2D2D;
-            color: #E0E0E0;
+            background-color: #3A3D48;
+            color: #FAFAFA;
+            border: 1px solid #4A4E5A;
         }
         
         .stSidebar .stRadio > div {
-            color: #E0E0E0;
+            color: #FAFAFA;
         }
         
+        /* Headers and text */
         .main-header {
-            color: #90CAF9 !important;
+            color: #7DD3FC !important;
         }
         
         .subtitle {
-            color: #B0BEC5 !important;
+            color: #CBD5E1 !important;
         }
         
+        /* Cards and containers */
         .stock-info-card {
-            background-color: #1E1E1E !important;
-            border-left-color: #90CAF9 !important;
-            color: #E0E0E0 !important;
+            background-color: #1A1D24 !important;
+            border-left-color: #7DD3FC !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748;
         }
         
         .stock-ticker {
-            color: #90CAF9 !important;
+            color: #7DD3FC !important;
         }
         
         .stock-name, .stock-meta {
-            color: #B0BEC5 !important;
+            color: #CBD5E1 !important;
         }
         
         .price-card {
-            background-color: #1E1E1E !important;
-            color: #E0E0E0 !important;
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748;
         }
         
         .metric-card {
-            background-color: #1E1E1E !important;
-            color: #E0E0E0 !important;
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748;
         }
         
         .mobile-card {
-            background-color: #1E1E1E !important;
-            color: #E0E0E0 !important;
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748;
         }
         
         .leg-card {
-            background-color: #1E1E1E !important;
-            color: #E0E0E0 !important;
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748;
         }
         
+        /* Metrics */
         .stMetric {
-            background-color: #1E1E1E !important;
+            background-color: #1A1D24 !important;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #2D3748;
         }
         
         .stMetric > div {
-            color: #E0E0E0 !important;
+            color: #FAFAFA !important;
         }
         
-        .stTab {
-            color: #E0E0E0 !important;
+        .stMetric label {
+            color: #CBD5E1 !important;
         }
         
+        .stMetric .metric-container {
+            color: #FAFAFA !important;
+        }
+        
+        /* Tabs */
+        .stTabs {
+            background-color: transparent !important;
+        }
+        
+        .stTabs [data-baseweb="tab-list"] {
+            background-color: #1A1D24 !important;
+            border-radius: 0.5rem;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            color: #CBD5E1 !important;
+            background-color: transparent !important;
+        }
+        
+        .stTabs [aria-selected="true"] {
+            background-color: #2D3748 !important;
+            color: #7DD3FC !important;
+        }
+        
+        /* Profit/Loss colors with better contrast */
         .profit {
-            color: #81C784 !important;
+            color: #4ADE80 !important;
         }
         
         .loss {
-            color: #E57373 !important;
+            color: #F87171 !important;
         }
         
-        /* Plotly chart dark theme */
+        /* Plotly chart dark theme overrides */
+        .js-plotly-plot .plotly {
+            background-color: #1A1D24 !important;
+        }
+        
         .js-plotly-plot .plotly .modebar {
-            background-color: #1E1E1E !important;
+            background-color: #262730 !important;
         }
         
-        /* Dataframe styling */
+        .js-plotly-plot .plotly .modebar-btn {
+            color: #CBD5E1 !important;
+        }
+        
+        /* Input fields and form elements */
+        .stTextInput > div > div > input,
+        .stSelectbox > div > div,
+        .stMultiSelect > div > div,
+        .stNumberInput > div > div > input {
+            background-color: #262730 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #4A4E5A !important;
+        }
+        
+        .stTextInput > label,
+        .stSelectbox > label,
+        .stMultiSelect > label,
+        .stNumberInput > label {
+            color: #CBD5E1 !important;
+        }
+        
+        /* Sliders */
+        .stSlider > div > div > div {
+            background-color: #4A4E5A !important;
+        }
+        
+        .stSlider > div > div > div > div {
+            background-color: #7DD3FC !important;
+        }
+        
+        .stSlider > label {
+            color: #CBD5E1 !important;
+        }
+        
+        /* Buttons */
+        .stButton > button {
+            background-color: #2D3748 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #4A4E5A !important;
+        }
+        
+        .stButton > button:hover {
+            background-color: #374151 !important;
+            border-color: #7DD3FC !important;
+        }
+        
+        /* Dataframes and tables */
         .stDataFrame {
-            background-color: #1E1E1E !important;
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
         }
         
-        /* Expander styling */
+        .stDataFrame thead {
+            background-color: #262730 !important;
+        }
+        
+        .stDataFrame th {
+            color: #CBD5E1 !important;
+            border-bottom: 2px solid #4A4E5A !important;
+        }
+        
+        .stDataFrame td {
+            color: #FAFAFA !important;
+            border-bottom: 1px solid #2D3748 !important;
+        }
+        
+        .stDataFrame tbody tr:hover {
+            background-color: #262730 !important;
+        }
+        
+        /* Expanders */
         .stExpander {
-            background-color: #1E1E1E !important;
-            border-color: #333333 !important;
+            background-color: #1A1D24 !important;
+            border: 1px solid #2D3748 !important;
         }
         
         .stExpander > div > div > div > div {
-            color: #E0E0E0 !important;
+            color: #FAFAFA !important;
+        }
+        
+        .stExpander [data-baseweb="accordion"] {
+            background-color: #1A1D24 !important;
+        }
+        
+        /* Progress bars */
+        .stProgress > div > div > div {
+            background-color: #4A4E5A !important;
+        }
+        
+        .stProgress > div > div > div > div {
+            background-color: #7DD3FC !important;
+        }
+        
+        /* Alerts and info boxes */
+        .stAlert {
+            background-color: #1A1D24 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #2D3748 !important;
+        }
+        
+        /* Checkbox and radio */
+        .stCheckbox > label,
+        .stRadio > label {
+            color: #FAFAFA !important;
+        }
+        
+        /* Download button */
+        .stDownloadButton > button {
+            background-color: #2D3748 !important;
+            color: #FAFAFA !important;
+            border: 1px solid #4A4E5A !important;
+        }
+        
+        .stDownloadButton > button:hover {
+            background-color: #374151 !important;
+            border-color: #7DD3FC !important;
+        }
+        
+        /* Help text */
+        .stHelp {
+            color: #94A3B8 !important;
+        }
+        
+        /* Dividers */
+        hr {
+            border-color: #2D3748 !important;
+        }
+        
+        /* Code blocks */
+        .stCodeBlock {
+            background-color: #1A1D24 !important;
+            border: 1px solid #2D3748 !important;
+        }
+        
+        .stCodeBlock code {
+            color: #FAFAFA !important;
+        }
+        
+        /* Select slider */
+        .stSelectSlider > div > div {
+            background-color: #262730 !important;
+        }
+        
+        .stSelectSlider > label {
+            color: #CBD5E1 !important;
+        }
+        
+        /* Error messages */
+        .stException {
+            background-color: #7F1D1D !important;
+            color: #FCA5A5 !important;
+            border: 1px solid #991B1B !important;
+        }
+        
+        /* Tooltips */
+        [data-baseweb="tooltip"] {
+            background-color: #374151 !important;
+            color: #FAFAFA !important;
+        }
+        
+        /* Success/Warning/Error text */
+        .stSuccess {
+            color: #4ADE80 !important;
+        }
+        
+        .stWarning {
+            color: #FBBF24 !important;
+        }
+        
+        .stError {
+            color: #F87171 !important;
+        }
+        
+        /* Ensure all text is readable */
+        p, span, div, label {
+            color: #FAFAFA !important;
+        }
+        
+        /* Fix for option chain data visibility */
+        .option-chain {
+            color: #FAFAFA !important;
+        }
+        
+        .chain-strike {
+            color: #7DD3FC !important;
+            font-weight: 600;
+        }
+        
+        .chain-premium {
+            color: #4ADE80 !important;
+        }
+        
+        .chain-volume {
+            color: #94A3B8 !important;
+        }
+        
+        .chain-oi {
+            color: #CBD5E1 !important;
+        }
+        
+        .chain-iv {
+            color: #A78BFA !important;
         }
         </style>
         """
@@ -170,8 +404,7 @@ def apply_theme():
         """
         st.markdown(light_css, unsafe_allow_html=True)
 
-# Update the theme selector section in the sidebar to this:
-
+# Theme toggle in the sidebar
 with st.sidebar:
     # Add logo and app title with better styling
     if os.path.exists("assets/logo.png"):
@@ -215,9 +448,6 @@ if 'stock_info' not in st.session_state:
     st.session_state['stock_info'] = None
 if 'theme' not in st.session_state:
     st.session_state['theme'] = "light"  # Default theme
-
-# Theme toggle in the sidebar
-with st.sidebar:
     # Add logo and app title with better styling
     if os.path.exists("assets/logo.png"):
         st.image("assets/logo.png", width=100)
