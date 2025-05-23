@@ -21,10 +21,21 @@ def get_chart_theme():
     if theme == 'dark':
         return {
             'template': 'plotly_dark',
-            'paper_bgcolor': '#121212',
-            'plot_bgcolor': '#1E1E1E',
-            'font_color': '#E0E0E0',
-            'grid_color': '#333333'
+            'paper_bgcolor': '#0E1117',
+            'plot_bgcolor': '#1A1D24',
+            'font_color': '#FAFAFA',
+            'grid_color': '#2D3748',
+            'axis_color': '#4A4E5A',
+            'tick_color': '#CBD5E1',
+            'zero_line_color': '#4A4E5A',
+            'annotation_bgcolor': '#262730',
+            'annotation_bordercolor': '#4A4E5A',
+            'current_price_color': '#F87171',
+            'breakeven_color': '#4ADE80',
+            'profit_color': '#4ADE80',
+            'loss_color': '#F87171',
+            'expiration_line_color': '#7DD3FC',
+            'current_value_line_color': '#A78BFA'
         }
     else:
         return {
@@ -32,21 +43,99 @@ def get_chart_theme():
             'paper_bgcolor': '#FFFFFF',
             'plot_bgcolor': '#FFFFFF',
             'font_color': '#212121',
-            'grid_color': '#E0E0E0'
+            'grid_color': '#E0E0E0',
+            'axis_color': '#212121',
+            'tick_color': '#616161',
+            'zero_line_color': '#000000',
+            'annotation_bgcolor': '#FFFFFF',
+            'annotation_bordercolor': '#212121',
+            'current_price_color': '#D62728',
+            'breakeven_color': '#2CA02C',
+            'profit_color': '#4CAF50',
+            'loss_color': '#F44336',
+            'expiration_line_color': '#1F77B4',
+            'current_value_line_color': '#2CA02C'
         }
 
 def apply_chart_theme(fig):
-    """Apply the current theme to a plotly figure."""
+    """Apply the current theme to a plotly figure with enhanced styling."""
     theme_config = get_chart_theme()
     
     fig.update_layout(
         template=theme_config['template'],
         paper_bgcolor=theme_config['paper_bgcolor'],
         plot_bgcolor=theme_config['plot_bgcolor'],
-        font=dict(color=theme_config['font_color']),
-        xaxis=dict(gridcolor=theme_config['grid_color']),
-        yaxis=dict(gridcolor=theme_config['grid_color'])
+        font=dict(
+            color=theme_config['font_color'],
+            size=12,
+            family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        ),
+        xaxis=dict(
+            gridcolor=theme_config['grid_color'],
+            gridwidth=1,
+            showgrid=True,
+            zeroline=True,
+            zerolinecolor=theme_config['zero_line_color'],
+            zerolinewidth=1,
+            linecolor=theme_config['axis_color'],
+            linewidth=1,
+            tickcolor=theme_config['tick_color'],
+            tickfont=dict(color=theme_config['tick_color'], size=11),
+            title_font=dict(color=theme_config['font_color'], size=13)
+        ),
+        yaxis=dict(
+            gridcolor=theme_config['grid_color'],
+            gridwidth=1,
+            showgrid=True,
+            zeroline=True,
+            zerolinecolor=theme_config['zero_line_color'],
+            zerolinewidth=1,
+            linecolor=theme_config['axis_color'],
+            linewidth=1,
+            tickcolor=theme_config['tick_color'],
+            tickfont=dict(color=theme_config['tick_color'], size=11),
+            title_font=dict(color=theme_config['font_color'], size=13)
+        ),
+        title=dict(
+            font=dict(color=theme_config['font_color'], size=16, family="Inter, sans-serif")
+        ),
+        hoverlabel=dict(
+            bgcolor=theme_config['annotation_bgcolor'],
+            bordercolor=theme_config['annotation_bordercolor'],
+            font=dict(color=theme_config['font_color'])
+        ),
+        legend=dict(
+            bgcolor=theme_config['annotation_bgcolor'],
+            bordercolor=theme_config['annotation_bordercolor'],
+            borderwidth=1,
+            font=dict(color=theme_config['font_color'])
+        )
     )
+    
+    # Update existing traces with theme-appropriate colors
+    for trace in fig.data:
+        if hasattr(trace, 'line'):
+            if 'P/L at Expiration' in trace.name:
+                trace.line.color = theme_config['expiration_line_color']
+                trace.line.width = 3
+            elif 'Current Value' in trace.name:
+                trace.line.color = theme_config['current_value_line_color']
+                trace.line.width = 2
+    
+    # Update shapes (lines) with theme colors
+    for shape in fig.layout.shapes:
+        if shape.line.color == 'gray' or shape.line.color == 'black':
+            shape.line.color = theme_config['zero_line_color']
+        elif shape.line.color in ['red', '#d62728']:
+            shape.line.color = theme_config['current_price_color']
+        elif shape.line.color == 'green':
+            shape.line.color = theme_config['breakeven_color']
+    
+    # Update annotations with theme colors
+    for annotation in fig.layout.annotations:
+        annotation.bgcolor = theme_config['annotation_bgcolor']
+        annotation.bordercolor = theme_config['annotation_bordercolor']
+        annotation.font.color = theme_config['font_color']
     
     return fig
 
@@ -355,7 +444,7 @@ def create_unrealized_pl_table(strategy_legs, current_price):
 def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range=None, 
                        days_to_expiry=None, show_current_value=True):
     """
-    Create an interactive plotly payoff chart for an options strategy.
+    Create an interactive plotly payoff chart for an options strategy with enhanced dark theme support.
     
     Parameters:
         strategy_name (str): Name of the strategy for the chart title
@@ -368,6 +457,9 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     Returns:
         go.Figure: Plotly figure object
     """
+    # Get theme configuration
+    theme_config = get_chart_theme()
+    
     # Validate inputs
     if not strategy_legs or not isinstance(strategy_legs, list):
         logger.warning("Invalid strategy_legs provided to create_payoff_chart")
@@ -390,13 +482,14 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     # Create figure
     fig = go.Figure()
     
-    # Add P/L at expiration
+    # Add P/L at expiration with theme colors
     fig.add_trace(go.Scatter(
         x=price_range, 
         y=payoffs,
         mode='lines',
         name='P/L at Expiration',
-        line=dict(color='#1f77b4', width=2)
+        line=dict(color=theme_config['expiration_line_color'], width=3),
+        hovertemplate='Price: $%{x:.2f}<br>P/L: $%{y:.2f}<extra></extra>'
     ))
     
     # Add current value line if days_to_expiry is provided and we're before expiration
@@ -415,37 +508,51 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
             y=current_values,
             mode='lines',
             name=f'Current Value (T-{days_to_expiry})',
-            line=dict(color='#2ca02c', width=2, dash='dash')
+            line=dict(color=theme_config['current_value_line_color'], width=2, dash='dash'),
+            hovertemplate='Price: $%{x:.2f}<br>Current Value: $%{y:.2f}<extra></extra>'
         ))
     
-    # Add zero line
+    # Add zero line with theme color
     fig.add_shape(
         type="line",
         x0=min(price_range), x1=max(price_range),
         y0=0, y1=0,
-        line=dict(color="gray", width=1)
+        line=dict(color=theme_config['zero_line_color'], width=2)
     )
     
-    # Add current price line
+    # Add current price line with theme color
     fig.add_shape(
         type="line",
         x0=current_price, x1=current_price,
         y0=min(min(payoffs), 0) * 1.1, 
         y1=max(max(payoffs), 0) * 1.1,
-        line=dict(color="#d62728", width=1, dash="dash")
+        line=dict(color=theme_config['current_price_color'], width=2, dash="dash")
+    )
+    
+    # Add current price label
+    fig.add_annotation(
+        x=current_price,
+        y=max(max(payoffs), 0) * 1.05,
+        text=f"Current: ${current_price:.2f}",
+        showarrow=False,
+        font=dict(color=theme_config['current_price_color'], size=11),
+        bgcolor=theme_config['annotation_bgcolor'],
+        bordercolor=theme_config['current_price_color'],
+        borderwidth=1,
+        borderpad=4
     )
     
     # Find breakeven points (where the expiration P/L crosses zero)
     breakeven_points = find_breakeven_points(price_range, payoffs)
     
-    # Add breakeven annotations
+    # Add breakeven lines and annotations with theme colors
     for i, be in enumerate(breakeven_points):
         fig.add_shape(
             type="line",
             x0=be, x1=be,
             y0=min(min(payoffs), 0) * 1.1, 
             y1=max(max(payoffs), 0) * 1.1,
-            line=dict(color="green", width=1, dash="dash")
+            line=dict(color=theme_config['breakeven_color'], width=1, dash="dot")
         )
         
         fig.add_annotation(
@@ -453,52 +560,168 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
             y=0,
             text=f"BE: ${be:.2f}",
             showarrow=True,
-            arrowhead=1
+            arrowhead=1,
+            arrowcolor=theme_config['breakeven_color'],
+            font=dict(color=theme_config['breakeven_color'], size=11),
+            bgcolor=theme_config['annotation_bgcolor'],
+            bordercolor=theme_config['breakeven_color'],
+            borderwidth=1,
+            borderpad=3
         )
     
     # Add key metrics to figure
     max_profit = max(payoffs)
     max_loss = min(payoffs)
     
-    metrics_text = (
-        f"Max Profit: ${max_profit:.2f}<br>"
-        f"Max Loss: ${max_loss:.2f}<br>"
-    )
+    # Build metrics text with color coding
+    metrics_text = ""
     
+    # Max Profit
+    if max_profit > 0:
+        profit_color = theme_config['profit_color']
+        metrics_text += f"<span style='color:{profit_color}'>Max Profit: ${max_profit:.2f}</span><br>"
+    else:
+        metrics_text += f"Max Profit: ${max_profit:.2f}<br>"
+    
+    # Max Loss
+    if max_loss < 0:
+        loss_color = theme_config['loss_color']
+        metrics_text += f"<span style='color:{loss_color}'>Max Loss: ${abs(max_loss):.2f}</span><br>"
+    else:
+        metrics_text += f"Max Loss: ${abs(max_loss):.2f}<br>"
+    
+    # Breakeven points
     if breakeven_points:
-        metrics_text += "Breakeven: " + ", ".join([f"${be:.2f}" for be in breakeven_points])
+        be_color = theme_config['breakeven_color']
+        be_text = ", ".join([f"${be:.2f}" for be in breakeven_points])
+        metrics_text += f"<span style='color:{be_color}'>Breakeven: {be_text}</span>"
     
-    # Get theme colors for annotation background
-    theme_config = get_chart_theme()
-    
+    # Add metrics annotation with enhanced styling
     fig.add_annotation(
         x=min(price_range) + (max(price_range) - min(price_range)) * 0.05,
         y=max(max(payoffs), 0) * 0.9,
         text=metrics_text,
         showarrow=False,
         align="left",
-        bgcolor=theme_config['paper_bgcolor'],
-        bordercolor=theme_config['font_color'],
+        bgcolor=theme_config['annotation_bgcolor'],
+        bordercolor=theme_config['annotation_bordercolor'],
         borderwidth=1,
-        font=dict(color=theme_config['font_color'])
+        borderpad=8,
+        font=dict(color=theme_config['font_color'], size=12)
     )
     
-    # Update layout
+    # Calculate profit/loss regions for shading
+    profit_region_x = []
+    profit_region_y = []
+    loss_region_x = []
+    loss_region_y = []
+    
+    for i, (price, payoff) in enumerate(zip(price_range, payoffs)):
+        if payoff > 0:
+            profit_region_x.append(price)
+            profit_region_y.append(payoff)
+        else:
+            loss_region_x.append(price)
+            loss_region_y.append(payoff)
+    
+    # Add profit region shading (subtle)
+    if profit_region_x:
+        fig.add_trace(go.Scatter(
+            x=profit_region_x,
+            y=profit_region_y,
+            fill='tozeroy',
+            fillcolor=f"rgba({int(theme_config['profit_color'][1:3], 16)}, {int(theme_config['profit_color'][3:5], 16)}, {int(theme_config['profit_color'][5:7], 16)}, 0.1)",
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Add loss region shading (subtle)
+    if loss_region_x:
+        fig.add_trace(go.Scatter(
+            x=loss_region_x,
+            y=loss_region_y,
+            fill='tozeroy',
+            fillcolor=f"rgba({int(theme_config['loss_color'][1:3], 16)}, {int(theme_config['loss_color'][3:5], 16)}, {int(theme_config['loss_color'][5:7], 16)}, 0.1)",
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Update layout with enhanced theme styling
     fig.update_layout(
-        title=f"{strategy_name} Profit/Loss Analysis",
-        xaxis_title="Stock Price",
-        yaxis_title="Profit/Loss ($)",
+        title=dict(
+            text=f"{strategy_name} Profit/Loss Analysis",
+            font=dict(color=theme_config['font_color'], size=18, family="Inter, sans-serif"),
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title="Stock Price",
+            title_font=dict(color=theme_config['font_color'], size=14),
+            tickformat="$,.0f",
+            gridcolor=theme_config['grid_color'],
+            gridwidth=1,
+            showgrid=True,
+            zeroline=False,
+            linecolor=theme_config['axis_color'],
+            linewidth=1,
+            tickcolor=theme_config['tick_color'],
+            tickfont=dict(color=theme_config['tick_color'], size=11),
+            tickmode='linear',
+            tick0=min(price_range),
+            dtick=(max(price_range) - min(price_range)) / 10
+        ),
+        yaxis=dict(
+            title="Profit/Loss ($)",
+            title_font=dict(color=theme_config['font_color'], size=14),
+            tickformat="$,.0f",
+            gridcolor=theme_config['grid_color'],
+            gridwidth=1,
+            showgrid=True,
+            zeroline=False,
+            linecolor=theme_config['axis_color'],
+            linewidth=1,
+            tickcolor=theme_config['tick_color'],
+            tickfont=dict(color=theme_config['tick_color'], size=11)
+        ),
         hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor=theme_config['annotation_bgcolor'],
+            bordercolor=theme_config['annotation_bordercolor'],
+            font=dict(color=theme_config['font_color'], size=12)
+        ),
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
-            x=0.01
-        )
+            x=0.01,
+            bgcolor=theme_config['annotation_bgcolor'],
+            bordercolor=theme_config['annotation_bordercolor'],
+            borderwidth=1,
+            font=dict(color=theme_config['font_color'], size=12)
+        ),
+        paper_bgcolor=theme_config['paper_bgcolor'],
+        plot_bgcolor=theme_config['plot_bgcolor'],
+        font=dict(
+            color=theme_config['font_color'],
+            family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        ),
+        margin=dict(l=60, r=40, t=60, b=60)
     )
     
-    # Apply theme
-    fig = apply_chart_theme(fig)
+    # Re-order traces to ensure lines are on top of fills
+    data = []
+    # Add fill traces first
+    for trace in fig.data:
+        if hasattr(trace, 'fill') and trace.fill is not None:
+            data.append(trace)
+    # Then add line traces
+    for trace in fig.data:
+        if not hasattr(trace, 'fill') or trace.fill is None:
+            data.append(trace)
+    
+    fig.data = data
     
     return fig
 
