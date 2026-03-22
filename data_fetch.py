@@ -40,11 +40,12 @@ def get_stock_price(ticker):
         if price_data.empty:
             # Try alternative method if history is empty
             quote_data = stock.info
-            if 'regularMarketPrice' in quote_data:
-                logger.info(f"Used alternative method to get price for {ticker} in {time.time() - start_time:.2f}s")
-                return quote_data['regularMarketPrice']
-            else:
-                raise ValueError(f"No price data available for {ticker}")
+            # Try keys in order of preference (yfinance API varies by version/region)
+            for price_key in ('currentPrice', 'regularMarketPrice', 'price', 'previousClose'):
+                if price_key in quote_data and quote_data[price_key]:
+                    logger.info(f"Used {price_key} fallback for {ticker} in {time.time() - start_time:.2f}s")
+                    return float(quote_data[price_key])
+            raise ValueError(f"No price data available for {ticker}")
         
         price = price_data["Close"].iloc[-1]
         logger.info(f"Retrieved price for {ticker}: ${price:.2f} in {time.time() - start_time:.2f}s")

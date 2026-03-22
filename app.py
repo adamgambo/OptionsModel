@@ -439,18 +439,25 @@ with st.sidebar:
 apply_theme()
 
 # Add custom CSS for enhanced styling
-with open('styles/main.css') as f:
-    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+try:
+    with open('styles/main.css') as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+except FileNotFoundError:
+    logger.warning("styles/main.css not found, using default styling")
 
 # Initialize session state for storing data between reruns
-if 'strategy_legs' not in st.session_state:
-    st.session_state['strategy_legs'] = None
-if 'current_price' not in st.session_state:
-    st.session_state['current_price'] = None
-if 'stock_info' not in st.session_state:
-    st.session_state['stock_info'] = None
-if 'theme' not in st.session_state:
-    st.session_state['theme'] = "light"  # Default theme
+for _key, _default in [
+    ('strategy_legs', None),
+    ('current_price', None),
+    ('stock_info', None),
+    ('theme', 'light'),
+    ('calls_df', None),
+    ('puts_df', None),
+    ('last_ticker', ''),
+    ('recent_tickers', []),
+]:
+    if _key not in st.session_state:
+        st.session_state[_key] = _default
 
 # Function to show app header
 def show_header():
@@ -618,10 +625,11 @@ def configure_strategy(ticker, current_price, expirations):
             strategy_type = st.selectbox("Strategy", [
                 "Iron Condor",
                 "Butterfly",
-                "Straddle", 
+                "Straddle",
                 "Strangle",
                 "Collar",
-                "Diagonal Spread"
+                "Diagonal Spread",
+                "Double Diagonal Spread"
             ])
         else:  # Custom Strategies
             strategy_type = st.selectbox("Strategy", [
@@ -1627,6 +1635,8 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
     
     with tabs[0]:  # Payoff Diagram
         try:
+            from utils import get_chart_theme
+            theme_config = get_chart_theme()
             # Generate price range for analysis with dynamic width
             volatility = calculate_strategy_volatility(strategy_legs)
             price_range_pct = min(max(0.25, volatility * 2), 0.5)  # Adjust based on volatility
@@ -1668,66 +1678,69 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             
             # Add P/L at expiration
             fig.add_trace(go.Scatter(
-                x=price_range, 
+                x=price_range,
                 y=expiry_payoffs,
                 mode='lines',
                 name='P/L at Expiration',
-                line=dict(color='blue', width=3)
+                line=dict(color=theme_config['expiration_line_color'], width=3)
             ))
-            
+
             # Add current P/L if available
             if current_values is not None:
                 fig.add_trace(go.Scatter(
-                    x=price_range, 
+                    x=price_range,
                     y=current_values,
                     mode='lines',
                     name=f'Current Value (T-{days_to_expiry})',
-                    line=dict(color='green', width=2, dash='dash')
+                    line=dict(color=theme_config['current_value_line_color'], width=2, dash='dash')
                 ))
-            
+
             # Add zero line
             fig.add_shape(
                 type="line",
                 x0=min(price_range), x1=max(price_range),
                 y0=0, y1=0,
-                line=dict(color="black", width=1)
+                line=dict(color=theme_config['zero_line_color'], width=1)
             )
-            
+
             # Add current price line
             fig.add_shape(
                 type="line",
                 x0=current_price, x1=current_price,
-                y0=min(min(expiry_payoffs), 0) * 1.1 if min(expiry_payoffs) < 0 else -10, 
+                y0=min(min(expiry_payoffs), 0) * 1.1 if min(expiry_payoffs) < 0 else -10,
                 y1=max(max(expiry_payoffs), 0) * 1.1,
-                line=dict(color="red", width=2, dash="dash")
+                line=dict(color=theme_config['current_price_color'], width=2, dash="dash")
             )
-            
+
             # Find breakeven points
             breakeven_points = find_breakeven_points(price_range, expiry_payoffs)
-            
+
             # Add breakeven annotations
             for i, be in enumerate(breakeven_points):
                 fig.add_shape(
                     type="line",
                     x0=be, x1=be,
-                    y0=min(min(expiry_payoffs), 0) * 1.1 if min(expiry_payoffs) < 0 else -10, 
+                    y0=min(min(expiry_payoffs), 0) * 1.1 if min(expiry_payoffs) < 0 else -10,
                     y1=max(max(expiry_payoffs), 0) * 1.1,
-                    line=dict(color="green", width=1, dash="dash")
+                    line=dict(color=theme_config['breakeven_color'], width=1, dash="dash")
                 )
-                
+
                 fig.add_annotation(
                     x=be,
                     y=0,
                     text=f"BE: ${be:.2f}",
                     showarrow=True,
-                    arrowhead=1
+                    arrowhead=1,
+                    font=dict(color=theme_config['breakeven_color']),
+                    bgcolor=theme_config['annotation_bgcolor'],
+                    bordercolor=theme_config['breakeven_color']
                 )
-            
+
             # Calculate key metrics
             max_profit = max(expiry_payoffs)
             max_loss = min(expiry_payoffs)
             profit_at_current = calculate_strategy_payoff(strategy_legs, [current_price], current_price)[0]
-            
+
             # Add metrics annotation
             fig.add_annotation(
                 x=min_price + (max_price - min_price) * 0.05,
@@ -1735,10 +1748,11 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                 text=f"<b>Max Profit:</b> ${max_profit:.2f}<br><b>Max Loss:</b> ${max_loss:.2f}<br><b>Current P/L:</b> ${profit_at_current:.2f}",
                 showarrow=False,
                 align="left",
-                bordercolor="black",
+                bordercolor=theme_config['annotation_bordercolor'],
                 borderwidth=1,
-                bgcolor="white",
-                opacity=0.8
+                bgcolor=theme_config['annotation_bgcolor'],
+                font=dict(color=theme_config['font_color']),
+                opacity=0.9
             )
             
             # Update layout with enhanced styling
@@ -1812,6 +1826,8 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
     
     with tabs[1]:  # Risk Analysis
         try:
+            from utils import get_chart_theme as _get_chart_theme
+            _tc = _get_chart_theme()
             # Enhanced risk analysis with probability metrics
             st.subheader("Probability Analysis")
             
@@ -1918,24 +1934,24 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                     y=pdf_values,
                     mode='lines',
                     name='Probability Density',
-                    line=dict(color='blue', width=2)
+                    line=dict(color=_tc['expiration_line_color'], width=2)
                 ))
-                
+
                 # Add current price line
                 fig.add_shape(
                     type="line",
                     x0=current_price, x1=current_price,
                     y0=0, y1=max(pdf_values) * 1.1,
-                    line=dict(color="red", width=1, dash="dash")
+                    line=dict(color=_tc['current_price_color'], width=1, dash="dash")
                 )
-                
+
                 # Add breakeven lines
                 for be in breakeven_points:
                     fig.add_shape(
                         type="line",
                         x0=be, x1=be,
                         y0=0, y1=max(pdf_values) * 1.1,
-                        line=dict(color="green", width=1, dash="dash")
+                        line=dict(color=_tc['breakeven_color'], width=1, dash="dash")
                     )
                 
                 # Update layout
@@ -1994,7 +2010,7 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                 type="line",
                 x0=current_price, x1=current_price,
                 y0=min(days_array), y1=max(days_array),
-                line=dict(color="white", width=2, dash="dash")
+                line=dict(color=_tc['current_price_color'], width=2, dash="dash")
             )
             
             # Update layout
@@ -2014,6 +2030,8 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
     with tabs[2]:  # Time Decay Analysis
         if days_to_expiry is not None and days_to_expiry > 0:
             try:
+                from utils import get_chart_theme as _get_tc2
+                _tc2 = _get_tc2()
                 st.subheader("Time Decay Analysis")
                 
                 # Enhanced time decay analysis with interactive elements
@@ -2089,16 +2107,16 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                     type="line",
                     x0=min_price, x1=max_price,
                     y0=0, y1=0,
-                    line=dict(color="black", width=1)
+                    line=dict(color=_tc2['zero_line_color'], width=1)
                 )
-                
+
                 # Add current price line
                 fig.add_shape(
                     type="line",
                     x0=current_price, x1=current_price,
-                    y0=min(fig.data[0].y) * 1.1, 
+                    y0=min(fig.data[0].y) * 1.1,
                     y1=max([max(trace.y) for trace in fig.data]) * 1.1,
-                    line=dict(color="red", width=1, dash="dash")
+                    line=dict(color=_tc2['current_price_color'], width=1, dash="dash")
                 )
                 
                 # Update layout
@@ -2141,38 +2159,41 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                     y=current_price_values,
                     mode='lines+markers',
                     name='P/L',
-                    line=dict(color='blue', width=2)
+                    line=dict(color=_tc2['expiration_line_color'], width=2)
                 ))
-                
+
                 # Add annotations for key dates
                 today_value = current_price_values[0]
                 expiry_value = current_price_values[-1]
                 theta = (expiry_value - today_value) / days_to_expiry
-                
+
                 fig.add_annotation(
-                    x=0,
-                    y=today_value,
+                    x=0, y=today_value,
                     text=f"Today: ${today_value:.2f}",
-                    showarrow=True,
-                    arrowhead=1
+                    showarrow=True, arrowhead=1,
+                    font=dict(color=_tc2['font_color']),
+                    bgcolor=_tc2['annotation_bgcolor'],
+                    bordercolor=_tc2['annotation_bordercolor']
                 )
-                
+
                 fig.add_annotation(
-                    x=detailed_days[-1],
-                    y=expiry_value,
+                    x=detailed_days[-1], y=expiry_value,
                     text=f"Expiry: ${expiry_value:.2f}",
-                    showarrow=True,
-                    arrowhead=1
+                    showarrow=True, arrowhead=1,
+                    font=dict(color=_tc2['font_color']),
+                    bgcolor=_tc2['annotation_bgcolor'],
+                    bordercolor=_tc2['annotation_bordercolor']
                 )
-                
+
                 # Calculate daily theta
                 fig.add_annotation(
                     x=detailed_days[-1] / 2,
                     y=max(current_price_values),
                     text=f"Daily Theta: ${theta:.2f}",
                     showarrow=False,
-                    bgcolor="rgba(255, 255, 255, 0.8)",
-                    bordercolor="black",
+                    bgcolor=_tc2['annotation_bgcolor'],
+                    bordercolor=_tc2['annotation_bordercolor'],
+                    font=dict(color=_tc2['font_color']),
                     borderwidth=1
                 )
                 
@@ -2201,15 +2222,15 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
                     x=detailed_days,
                     y=theta_values,
                     name='Daily Theta',
-                    marker_color=['red' if v < 0 else 'green' for v in theta_values]
+                    marker_color=[_tc2['loss_color'] if v < 0 else _tc2['profit_color'] for v in theta_values]
                 ))
-                
+
                 # Add zero line
                 fig.add_shape(
                     type="line",
                     x0=0, x1=detailed_days[-1],
                     y0=0, y1=0,
-                    line=dict(color="black", width=1)
+                    line=dict(color=_tc2['zero_line_color'], width=1)
                 )
                 
                 # Update layout
@@ -2351,6 +2372,8 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             """, unsafe_allow_html=True)
 
     with tabs[4]:  # Position Analysis
+        from utils import get_chart_theme as _get_tc4
+        _tc4 = _get_tc4()
         st.subheader("Position Analysis")
         
         # Create position summary if we have both current prices and entry prices
@@ -2438,38 +2461,38 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             # Add original position payoff
             original_payoffs = calculate_strategy_payoff(strategy_legs, current_price_range)
             fig.add_trace(go.Scatter(
-                x=current_price_range, 
+                x=current_price_range,
                 y=original_payoffs,
                 mode='lines',
                 name='Current Position',
-                line=dict(color='blue', width=2)
+                line=dict(color=_tc4['expiration_line_color'], width=2)
             ))
-            
+
             # Add what if payoff
             what_if_payoffs = calculate_strategy_payoff(what_if_legs, current_price_range)
             fig.add_trace(go.Scatter(
-                x=current_price_range, 
+                x=current_price_range,
                 y=what_if_payoffs,
                 mode='lines',
                 name='If Entered Now',
-                line=dict(color='green', width=2, dash='dash')
+                line=dict(color=_tc4['current_value_line_color'], width=2, dash='dash')
             ))
-            
+
             # Add zero line
             fig.add_shape(
                 type="line",
                 x0=min(current_price_range), x1=max(current_price_range),
                 y0=0, y1=0,
-                line=dict(color="black", width=1)
+                line=dict(color=_tc4['zero_line_color'], width=1)
             )
-            
+
             # Add current price line
             fig.add_shape(
                 type="line",
                 x0=current_price, x1=current_price,
-                y0=min(min(original_payoffs), min(what_if_payoffs)) * 1.1, 
+                y0=min(min(original_payoffs), min(what_if_payoffs)) * 1.1,
                 y1=max(max(original_payoffs), max(what_if_payoffs)) * 1.1,
-                line=dict(color="red", width=1, dash="dash")
+                line=dict(color=_tc4['current_price_color'], width=1, dash="dash")
             )
             
             # Update layout

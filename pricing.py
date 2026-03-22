@@ -326,32 +326,31 @@ def binomial_tree_price(option_type, S, K, t, r, sigma, steps=100, american=Fals
         p = (np.exp((r - q) * dt) - d) / (u - d)
         discount = np.exp(-r * dt)
         
-        # Initialize asset prices at each node of the final step
-        prices = np.zeros(steps + 1)
-        for i in range(steps + 1):
-            prices[i] = S * (u ** (steps - i)) * (d ** i)
-        
+        # Vectorised final asset prices: S * u^(steps-i) * d^i for i=0..steps
+        idx = np.arange(steps + 1)
+        prices = S * (u ** (steps - idx)) * (d ** idx)
+
         # Initialize option values at final nodes
         if option_type.lower() == "call":
             option_values = np.maximum(0, prices - K)
         else:
             option_values = np.maximum(0, K - prices)
-        
-        # Work backwards through the tree
+
+        # Work backwards through the tree (outer loop over steps, inner ops vectorised)
         for step in range(steps - 1, -1, -1):
-            for i in range(step + 1):
-                # Calculate asset price at this node
-                spot = S * (u ** (step - i)) * (d ** i)
-                
-                # Calculate option value at this node (expectation)
-                option_values[i] = discount * (p * option_values[i] + (1 - p) * option_values[i + 1])
-                
-                # For American options, check for early exercise
-                if american:
-                    if option_type.lower() == "call":
-                        option_values[i] = max(option_values[i], spot - K)
-                    else:
-                        option_values[i] = max(option_values[i], K - spot)
+            # Vectorised expectation for all nodes at this step
+            option_values[:step + 1] = discount * (
+                p * option_values[:step + 1] + (1 - p) * option_values[1:step + 2]
+            )
+
+            # For American options, check early exercise against intrinsic value
+            if american:
+                j = np.arange(step + 1)
+                spots = S * (u ** (step - j)) * (d ** j)
+                if option_type.lower() == "call":
+                    option_values[:step + 1] = np.maximum(option_values[:step + 1], spots - K)
+                else:
+                    option_values[:step + 1] = np.maximum(option_values[:step + 1], K - spots)
         
         # Return the option value at the root node
         return option_values[0]
