@@ -453,6 +453,85 @@ a:hover {
     text-decoration: underline;
 }
 
+/* ------ IV Analysis Styling ------ */
+.iv-card {
+    background-color: #f0f4ff;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #673AB7;
+}
+
+.iv-metric {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #673AB7;
+}
+
+.iv-label {
+    font-size: 0.8rem;
+    color: #757575;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.hv-above-iv {
+    color: #F44336;
+    font-weight: 600;
+}
+
+.hv-below-iv {
+    color: #4CAF50;
+    font-weight: 600;
+}
+
+/* ------ Tab Styling ------ */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 6px 6px 0 0;
+    padding: 8px 16px;
+    font-weight: 500;
+}
+
+.stTabs [aria-selected="true"] {
+    border-bottom: 2px solid #1E88E5;
+}
+
+/* ------ Badge / Tag Components ------ */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-bullish {
+    background-color: rgba(76, 175, 80, 0.15);
+    color: #2E7D32;
+}
+
+.badge-bearish {
+    background-color: rgba(244, 67, 54, 0.15);
+    color: #C62828;
+}
+
+.badge-neutral {
+    background-color: rgba(117, 117, 117, 0.15);
+    color: #424242;
+}
+
+.badge-volatile {
+    background-color: rgba(255, 152, 0, 0.15);
+    color: #E65100;
+}
+
 /* ------ Dark Theme Overrides ------ */
 .dark-mode {
     background-color: #121212;
@@ -497,12 +576,122 @@ a:hover {
     color: #E0E0E0;
 }
 
+.dark-mode .strategy-info-card {
+    background-color: #1A237E1A;
+    border-left-color: #90CAF9;
+}
+
+.dark-mode .strategy-title {
+    color: #90CAF9;
+}
+
+.dark-mode .strategy-description {
+    color: #B0BEC5;
+}
+
+.dark-mode .strategy-metrics {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .iv-card {
+    background-color: #1E1A2E;
+    border-left-color: #CE93D8;
+}
+
+.dark-mode .iv-metric {
+    color: #CE93D8;
+}
+
+.dark-mode .iv-label {
+    color: #9E9E9E;
+}
+
+.dark-mode .leg-card {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .leg-title {
+    color: #E0E0E0;
+}
+
+.dark-mode .info-box {
+    background-color: #0D47A11A;
+    border-left-color: #90CAF9;
+    color: #B0BEC5;
+}
+
+.dark-mode .warning-box {
+    background-color: #E65100 1A;
+    border-left-color: #FFB74D;
+    color: #B0BEC5;
+}
+
+.dark-mode .option-chain th {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .option-chain tr:hover {
+    background-color: #2A2A2A;
+}
+
+.dark-mode .chain-premium {
+    color: #90CAF9;
+}
+
+.dark-mode .chain-iv {
+    color: #CE93D8;
+}
+
+.dark-mode .stTabs [data-baseweb="tab-list"] {
+    border-bottom-color: #333333;
+}
+
+.dark-mode .badge-bullish {
+    background-color: rgba(76, 175, 80, 0.2);
+    color: #81C784;
+}
+
+.dark-mode .badge-bearish {
+    background-color: rgba(244, 67, 54, 0.2);
+    color: #E57373;
+}
+
+.dark-mode .badge-neutral {
+    background-color: rgba(158, 158, 158, 0.2);
+    color: #BDBDBD;
+}
+
+.dark-mode .badge-volatile {
+    background-color: rgba(255, 152, 0, 0.2);
+    color: #FFB74D;
+}
+
 .dark-mode .profit {
     color: #81C784 !important;
 }
 
 .dark-mode .loss {
     color: #E57373 !important;
+}
+
+.dark-mode .mobile-card {
+    background-color: #1E1E1E;
+}
+
+.dark-mode .mobile-header {
+    color: #90CAF9;
+}
+
+.dark-mode .mobile-metrics .metric {
+    background-color: #2A2A2A;
+}
+
+.dark-mode .mobile-content {
+    color: #E0E0E0;
+}
+
+.dark-mode .mobile-scenario {
+    background-color: #2A2A2A;
 }
 
 .dark-mode .footer {
