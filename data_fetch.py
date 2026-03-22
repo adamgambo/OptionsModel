@@ -148,44 +148,46 @@ def get_option_chain(ticker, expiration):
         
         # Fetch the option chain
         chain = stock.option_chain(expiration)
-        
-        # Convert to easier-to-use format
-        calls = chain.calls
-        puts = chain.puts
-        
+
+        # Copy to avoid mutating yfinance's cached DataFrames (required for pandas 2.3+)
+        calls = chain.calls.copy()
+        puts = chain.puts.copy()
+
         # Ensure we have data
         if calls.empty or puts.empty:
             raise ValueError(f"Empty option chain for {ticker} at expiration {expiration}")
-        
+
         # Enhance option chain with calculated columns and validations
-        for df in [calls, puts]:
-            # Fill missing values with reasonable defaults
-            if 'lastPrice' not in df.columns or df['lastPrice'].isna().any():
-                # Use mid price if last price is missing
-                if 'bid' in df.columns and 'ask' in df.columns:
-                    df['lastPrice'] = df.apply(
-                        lambda row: (row['bid'] + row['ask']) / 2 if pd.isna(row['lastPrice']) else row['lastPrice'],
-                        axis=1
-                    )
-                else:
-                    # If bid/ask are also missing, use a placeholder
-                    df['lastPrice'] = 0.01
-            
-            # Calculate implied volatility if not already present
-            if 'impliedVolatility' not in df.columns or df['impliedVolatility'].isna().any():
-                df['impliedVolatility'] = 0.3  # Default value
-            
+        current_price = get_stock_price(ticker)
+        for i, df in enumerate([calls, puts]):
+            is_call = (i == 0)
+
+            # Fill missing lastPrice with mid price (vectorised)
+            if 'lastPrice' not in df.columns:
+                df['lastPrice'] = 0.01
+            else:
+                mask = df['lastPrice'].isna()
+                if mask.any():
+                    if 'bid' in df.columns and 'ask' in df.columns:
+                        df.loc[mask, 'lastPrice'] = (df.loc[mask, 'bid'] + df.loc[mask, 'ask']) / 2
+                    df['lastPrice'] = df['lastPrice'].fillna(0.01)
+
+            # Fill missing implied volatility
+            if 'impliedVolatility' not in df.columns:
+                df['impliedVolatility'] = 0.3
+            else:
+                df['impliedVolatility'] = df['impliedVolatility'].fillna(0.3)
+
             # Add in-the-money flag if not present
-            current_price = get_stock_price(ticker)
             if 'inTheMoney' not in df.columns:
-                if df is calls:  # If this is a calls dataframe
+                if is_call:
                     df['inTheMoney'] = df['strike'] < current_price
-                else:  # If this is a puts dataframe
+                else:
                     df['inTheMoney'] = df['strike'] > current_price
-            
+
             # Add moneyness (% from ATM)
             df['moneyness'] = (df['strike'] / current_price - 1) * 100
-            
+
             # Convert volume and OI to numeric
             for col in ['volume', 'openInterest']:
                 if col in df.columns:
@@ -340,18 +342,28 @@ def get_stock_fundamentals(ticker):
         start_time = time.time()
         stock = yf.Ticker(ticker)
         
+        def _safe_to_dict(attr_name):
+            """Safely fetch a yfinance attribute that may not exist in newer versions."""
+            try:
+                obj = getattr(stock, attr_name)
+                if obj is not None and not obj.empty:
+                    return obj.to_dict()
+            except Exception:
+                pass
+            return {}
+
         # Gather fundamental data
         fundamentals = {
-            'financials': stock.financials.to_dict() if hasattr(stock, 'financials') and not stock.financials.empty else {},
-            'quarterly_financials': stock.quarterly_financials.to_dict() if hasattr(stock, 'quarterly_financials') and not stock.quarterly_financials.empty else {},
-            'balance_sheet': stock.balance_sheet.to_dict() if hasattr(stock, 'balance_sheet') and not stock.balance_sheet.empty else {},
-            'quarterly_balance_sheet': stock.quarterly_balance_sheet.to_dict() if hasattr(stock, 'quarterly_balance_sheet') and not stock.quarterly_balance_sheet.empty else {},
-            'cashflow': stock.cashflow.to_dict() if hasattr(stock, 'cashflow') and not stock.cashflow.empty else {},
-            'quarterly_cashflow': stock.quarterly_cashflow.to_dict() if hasattr(stock, 'quarterly_cashflow') and not stock.quarterly_cashflow.empty else {},
-            'earnings': stock.earnings.to_dict() if hasattr(stock, 'earnings') and not stock.earnings.empty else {},
-            'quarterly_earnings': stock.quarterly_earnings.to_dict() if hasattr(stock, 'quarterly_earnings') and not stock.quarterly_earnings.empty else {},
-            'sustainability': stock.sustainability.to_dict() if hasattr(stock, 'sustainability') and not stock.sustainability.empty else {},
-            'recommendations': stock.recommendations.to_dict() if hasattr(stock, 'recommendations') and not stock.recommendations.empty else {},
+            'financials': _safe_to_dict('financials'),
+            'quarterly_financials': _safe_to_dict('quarterly_financials'),
+            'balance_sheet': _safe_to_dict('balance_sheet'),
+            'quarterly_balance_sheet': _safe_to_dict('quarterly_balance_sheet'),
+            'cashflow': _safe_to_dict('cashflow'),
+            'quarterly_cashflow': _safe_to_dict('quarterly_cashflow'),
+            'earnings': _safe_to_dict('earnings'),
+            'quarterly_earnings': _safe_to_dict('quarterly_earnings'),
+            'sustainability': _safe_to_dict('sustainability'),
+            'recommendations': _safe_to_dict('recommendations'),
         }
         
         logger.info(f"Retrieved fundamental data for {ticker} in {time.time() - start_time:.2f}s")
