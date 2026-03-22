@@ -9,10 +9,10 @@ import logging
 # Setup logging
 logger = logging.getLogger(__name__)
 
-def black_scholes(option_type, S, K, t, r, sigma):
+def black_scholes(option_type, S, K, t, r, sigma, q=0.0):
     """
-    Calculate option price using the Black-Scholes formula with improved handling of edge cases.
-    
+    Calculate option price using the Black-Scholes-Merton formula with dividend yield support.
+
     Parameters:
         option_type (str): 'call' or 'put'
         S (float): Current stock price
@@ -20,7 +20,8 @@ def black_scholes(option_type, S, K, t, r, sigma):
         t (float): Time to expiration in years
         r (float): Risk-free interest rate (decimal)
         sigma (float): Implied volatility (decimal)
-    
+        q (float): Continuous dividend yield (decimal, default 0.0)
+
     Returns:
         float: Option price
     """
@@ -31,17 +32,18 @@ def black_scholes(option_type, S, K, t, r, sigma):
             return max(0, S - K)
         else:
             return max(0, K - S)
-    
+
     if sigma <= 0:
         sigma = 0.0001  # Prevent division by zero
-    
+
     # Ensure inputs are floats
     S = float(S)
     K = float(K)
     t = float(t)
     r = float(r)
     sigma = float(sigma)
-    
+    q = float(q)
+
     # Check for invalid parameters that would cause mathematical errors
     if S <= 0:
         logger.warning(f"Invalid stock price S={S}. Setting to 0.01")
@@ -51,26 +53,20 @@ def black_scholes(option_type, S, K, t, r, sigma):
         K = 0.01
 
     try:
-        # Validate inputs to prevent mathematical errors
-        if S <= 0:
-            S = 0.01
-        if K <= 0:
-            K = 0.01
-        
-        # Calculate d1 and d2
-        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))
+        # Calculate d1 and d2 (Merton form with continuous dividend yield q)
+        d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))
         d2 = d1 - sigma * np.sqrt(t)
-        
+
         # Calculate option price
         if option_type.lower() == "call":
-            price = S * norm.cdf(d1) - K * np.exp(-r * t) * norm.cdf(d2)
+            price = S * np.exp(-q * t) * norm.cdf(d1) - K * np.exp(-r * t) * norm.cdf(d2)
         elif option_type.lower() == "put":
-            price = K * np.exp(-r * t) * norm.cdf(-d2) - S * norm.cdf(-d1)
+            price = K * np.exp(-r * t) * norm.cdf(-d2) - S * np.exp(-q * t) * norm.cdf(-d1)
         else:
             raise ValueError(f"Invalid option type: {option_type}. Use 'call' or 'put'.")
-        
+
         return max(0, price)  # Ensure non-negative price
-    
+
     except Exception as e:
         logger.error(f"Black-Scholes calculation error: {str(e)}", exc_info=True)
         # Return intrinsic value as fallback
@@ -79,10 +75,10 @@ def black_scholes(option_type, S, K, t, r, sigma):
         else:
             return max(0, K - S)
 
-def calculate_greeks(option_type, S, K, t, r, sigma):
+def calculate_greeks(option_type, S, K, t, r, sigma, q=0.0):
     """
-    Calculate option Greeks with improved accuracy and error handling.
-    
+    Calculate option Greeks with dividend yield support.
+
     Parameters:
         option_type (str): 'call' or 'put'
         S (float): Current stock price
@@ -90,7 +86,8 @@ def calculate_greeks(option_type, S, K, t, r, sigma):
         t (float): Time to expiration in years
         r (float): Risk-free interest rate (decimal)
         sigma (float): Implied volatility (decimal)
-    
+        q (float): Continuous dividend yield (decimal, default 0.0)
+
     Returns:
         dict: Dictionary containing delta, gamma, theta, vega, and rho
     """
@@ -108,55 +105,59 @@ def calculate_greeks(option_type, S, K, t, r, sigma):
             "theta": 0.0,
             "rho": 0.0
         }
-    
+
     if sigma <= 0:
         sigma = 0.0001  # Prevent division by zero
-    
+
+    q = float(q)
+
     try:
-        # Calculate d1 and d2
-        d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))
+        # Calculate d1 and d2 (Merton form with continuous dividend yield q)
+        d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * t) / (sigma * np.sqrt(t))
         d2 = d1 - sigma * np.sqrt(t)
-        
+
         # Calculate probability density at d1
         pdf_d1 = norm.pdf(d1)
-        
+
         # Calculate cumulative probabilities
         cdf_d1 = norm.cdf(d1)
         cdf_neg_d1 = norm.cdf(-d1)
         cdf_d2 = norm.cdf(d2)
         cdf_neg_d2 = norm.cdf(-d2)
-        
-        # Gamma (same for calls and puts)
-        gamma = pdf_d1 / (S * sigma * np.sqrt(t))
-        
-        # Vega (same for calls and puts)
-        vega = S * pdf_d1 * np.sqrt(t) / 100  # Divided by 100 for scaling
-        
+
+        # Gamma (same for calls and puts, adjusted for dividend yield)
+        gamma = np.exp(-q * t) * pdf_d1 / (S * sigma * np.sqrt(t))
+
+        # Vega (same for calls and puts, adjusted for dividend yield)
+        vega = S * np.exp(-q * t) * pdf_d1 * np.sqrt(t) / 100  # Divided by 100 for scaling
+
         if option_type.lower() == "call":
-            # Delta for call
-            delta = cdf_d1
-            
-            # Theta for call (daily)
-            theta = (-(S * pdf_d1 * sigma) / (2 * np.sqrt(t)) - 
-                    r * K * np.exp(-r * t) * cdf_d2) / 365
-            
+            # Delta for call (adjusted for dividend yield)
+            delta = np.exp(-q * t) * cdf_d1
+
+            # Theta for call (daily, adjusted for dividend yield)
+            theta = (-(S * np.exp(-q * t) * pdf_d1 * sigma) / (2 * np.sqrt(t))
+                     + q * S * np.exp(-q * t) * cdf_d1
+                     - r * K * np.exp(-r * t) * cdf_d2) / 365
+
             # Rho for call (per 1% change)
             rho = K * t * np.exp(-r * t) * cdf_d2 / 100
-        
+
         elif option_type.lower() == "put":
-            # Delta for put
-            delta = cdf_d1 - 1
-            
-            # Theta for put (daily)
-            theta = (-(S * pdf_d1 * sigma) / (2 * np.sqrt(t)) + 
-                    r * K * np.exp(-r * t) * cdf_neg_d2) / 365
-            
+            # Delta for put (adjusted for dividend yield)
+            delta = np.exp(-q * t) * (cdf_d1 - 1)
+
+            # Theta for put (daily, adjusted for dividend yield)
+            theta = (-(S * np.exp(-q * t) * pdf_d1 * sigma) / (2 * np.sqrt(t))
+                     - q * S * np.exp(-q * t) * cdf_neg_d1
+                     + r * K * np.exp(-r * t) * cdf_neg_d2) / 365
+
             # Rho for put (per 1% change)
             rho = -K * t * np.exp(-r * t) * cdf_neg_d2 / 100
-        
+
         else:
             raise ValueError(f"Invalid option type: {option_type}. Use 'call' or 'put'.")
-        
+
         return {
             "delta": delta,
             "gamma": gamma,
@@ -164,7 +165,7 @@ def calculate_greeks(option_type, S, K, t, r, sigma):
             "theta": theta,
             "rho": rho
         }
-    
+
     except Exception as e:
         logger.error(f"Greeks calculation error: {str(e)}", exc_info=True)
         # Return default values on error
@@ -380,35 +381,22 @@ def monte_carlo_price(option_type, S, K, t, r, sigma, paths=10000, steps=100):
     try:
         # Time step
         dt = t / steps
-        
-        # Initialize array for final stock prices
-        final_prices = np.zeros(paths)
-        
-        # Generate random paths
-        for i in range(paths):
-            # Generate random normal variables
-            Z = np.random.standard_normal(steps)
-            
-            # Initialize path
-            stock_price = S
-            
-            # Simulate path
-            for j in range(steps):
-                # Calculate price movement
-                stock_price *= np.exp((r - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z[j])
-            
-            # Store final price
-            final_prices[i] = stock_price
-        
+
+        # Vectorized simulation: generate all random shocks at once (paths x steps)
+        Z = np.random.standard_normal((paths, steps))
+        log_returns = (r - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z
+        # Final stock prices via cumulative log returns
+        final_prices = S * np.exp(np.sum(log_returns, axis=1))
+
         # Calculate payoffs
         if option_type.lower() == "call":
             payoffs = np.maximum(0, final_prices - K)
         else:
             payoffs = np.maximum(0, K - final_prices)
-        
+
         # Discount payoffs
         option_price = np.exp(-r * t) * np.mean(payoffs)
-        
+
         return option_price
     
     except Exception as e:
@@ -554,7 +542,7 @@ def calculate_iv_surface(options_chain, current_price):
         calls = chain.get('calls', pd.DataFrame())
         puts = chain.get('puts', pd.DataFrame())
         
-        days_to_expiry = (pd.to_datetime(expiry) - pd.to_datetime('today')).days
+        days_to_expiry = (pd.to_datetime(expiry).date() - pd.Timestamp.now().date()).days
         years_to_expiry = days_to_expiry / 365
         
         if days_to_expiry <= 0:

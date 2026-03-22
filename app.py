@@ -448,18 +448,6 @@ if 'stock_info' not in st.session_state:
     st.session_state['stock_info'] = None
 if 'theme' not in st.session_state:
     st.session_state['theme'] = "light"  # Default theme
-    # Add logo and app title with better styling
-    if os.path.exists("assets/logo.png"):
-        st.image("assets/logo.png", width=100)
-    st.title("Options Strategy Calculator")
-    
-    # Theme selector
-    theme = st.radio("Theme", ["Light", "Dark"], 
-                    index=0 if st.session_state['theme'] == "light" else 1,
-                    horizontal=True)
-    st.session_state['theme'] = theme.lower()
-    
-    st.divider()
 
 # Function to show app header
 def show_header():

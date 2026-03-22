@@ -138,11 +138,12 @@ def get_option_chain(ticker, expiration):
         
         if expiration not in available_dates:
             # Try to find closest expiration date
+            original_expiration = expiration
             available_dates = [datetime.strptime(date, "%Y-%m-%d").date() for date in available_dates]
             target_date = datetime.strptime(expiration, "%Y-%m-%d").date()
             closest_date = min(available_dates, key=lambda x: abs((x - target_date).days))
             expiration = closest_date.strftime("%Y-%m-%d")
-            logger.warning(f"Expiration {expiration} not found, using closest date: {expiration}")
+            logger.warning(f"Expiration {original_expiration} not found, using closest date: {expiration}")
         
         # Fetch the option chain
         chain = stock.option_chain(expiration)
