@@ -1440,21 +1440,16 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             n_put = len(available_put_strikes)
             atm_index_put = min(range(n_put), key=lambda i: abs(available_put_strikes[i] - current_price))
 
-            # Ensure the two slider handles are always different (ascending order required)
+            # Ensure the two default strikes are always different
             _put_lower = max(0, atm_index_put - 5)
             _put_upper = min(n_put - 1, max(_put_lower + 1, atm_index_put - 2))
 
-            put_spread_range = st.slider(
+            long_put_strike, short_put_strike = st.select_slider(
                 "Put Spread Strikes",
-                min_value=0,
-                max_value=n_put - 1,
-                value=(_put_lower, _put_upper),
-                format_func=lambda i: f"${available_put_strikes[i]:.2f}"
+                options=available_put_strikes,
+                value=(available_put_strikes[_put_lower], available_put_strikes[_put_upper]),
+                format_func=lambda x: f"${x:.2f}"
             )
-
-            long_put_index, short_put_index = put_spread_range
-            long_put_strike = available_put_strikes[long_put_index]
-            short_put_strike = available_put_strikes[short_put_index]
 
             # Get option data for puts (ensure Python float, floor at 0.01)
             long_put_data = puts_df[puts_df['strike'] == long_put_strike].iloc[0]
@@ -1506,21 +1501,16 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
             n_call = len(available_call_strikes)
             atm_index_call = min(range(n_call), key=lambda i: abs(available_call_strikes[i] - current_price))
 
-            # Ensure the two slider handles are always different
+            # Ensure the two default strikes are always different
             _call_lower = min(n_call - 2, max(0, atm_index_call + 2))
             _call_upper = min(n_call - 1, max(_call_lower + 1, atm_index_call + 5))
 
-            call_spread_range = st.slider(
+            short_call_strike, long_call_strike = st.select_slider(
                 "Call Spread Strikes",
-                min_value=0,
-                max_value=n_call - 1,
-                value=(_call_lower, _call_upper),
-                format_func=lambda i: f"${available_call_strikes[i]:.2f}"
+                options=available_call_strikes,
+                value=(available_call_strikes[_call_lower], available_call_strikes[_call_upper]),
+                format_func=lambda x: f"${x:.2f}"
             )
-
-            short_call_index, long_call_index = call_spread_range
-            short_call_strike = available_call_strikes[short_call_index]
-            long_call_strike = available_call_strikes[long_call_index]
 
             # Get option data for calls (ensure Python float, floor at 0.01)
             short_call_data = calls_df[calls_df['strike'] == short_call_strike].iloc[0]
