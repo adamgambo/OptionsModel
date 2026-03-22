@@ -911,5 +911,113 @@ def create_risk_table(strategy_legs, current_price, days_to_expiry, volatility=0
     
     # Set column names
     df.columns = [f"{price_labels[i]} (${prices[i]:.2f})" for i in range(len(prices))]
-    
+
     return df
+
+
+def create_iv_smile_chart(calls_df, puts_df, current_price):
+    """
+    Create an implied volatility smile/skew chart for the current expiration.
+
+    Parameters:
+        calls_df (pd.DataFrame): Calls option chain with 'strike' and 'impliedVolatility'
+        puts_df (pd.DataFrame): Puts option chain with 'strike' and 'impliedVolatility'
+        current_price (float): Current stock price
+
+    Returns:
+        go.Figure: Plotly figure object
+    """
+    theme_config = get_chart_theme()
+    fig = go.Figure()
+
+    if not calls_df.empty and 'impliedVolatility' in calls_df.columns:
+        c = calls_df[calls_df['impliedVolatility'] > 0].copy()
+        c = c.sort_values('strike')
+        fig.add_trace(go.Scatter(
+            x=c['strike'],
+            y=c['impliedVolatility'] * 100,
+            mode='lines+markers',
+            name='Calls IV',
+            line=dict(color=theme_config['expiration_line_color'], width=2),
+            marker=dict(size=5),
+            hovertemplate='Strike: $%{x:.2f}<br>IV: %{y:.1f}%<extra>Calls</extra>'
+        ))
+
+    if not puts_df.empty and 'impliedVolatility' in puts_df.columns:
+        p = puts_df[puts_df['impliedVolatility'] > 0].copy()
+        p = p.sort_values('strike')
+        fig.add_trace(go.Scatter(
+            x=p['strike'],
+            y=p['impliedVolatility'] * 100,
+            mode='lines+markers',
+            name='Puts IV',
+            line=dict(color=theme_config['current_price_color'], width=2),
+            marker=dict(size=5),
+            hovertemplate='Strike: $%{x:.2f}<br>IV: %{y:.1f}%<extra>Puts</extra>'
+        ))
+
+    # Current price reference line
+    fig.add_vline(
+        x=current_price,
+        line_dash='dash',
+        line_color=theme_config['breakeven_color'],
+        annotation_text=f'Current ${current_price:.2f}',
+        annotation_position='top right',
+        annotation_font_color=theme_config['breakeven_color']
+    )
+
+    fig.update_layout(
+        title='Implied Volatility Smile / Skew',
+        xaxis_title='Strike Price ($)',
+        yaxis_title='Implied Volatility (%)',
+        height=420,
+        hovermode='x unified',
+        legend=dict(yanchor='top', y=0.99, xanchor='left', x=0.01)
+    )
+
+    return apply_chart_theme(fig)
+
+
+def create_hv_vs_iv_chart(hv_series, avg_iv, ticker):
+    """
+    Chart rolling historical volatility vs current average implied volatility.
+
+    Parameters:
+        hv_series (pd.Series): Rolling HV values indexed by date
+        avg_iv (float): Current average IV across the option chain (decimal)
+        ticker (str): Ticker symbol for the chart title
+
+    Returns:
+        go.Figure: Plotly figure object
+    """
+    theme_config = get_chart_theme()
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=hv_series.index,
+        y=hv_series.values * 100,
+        mode='lines',
+        name='Historical Volatility (21d)',
+        line=dict(color=theme_config['expiration_line_color'], width=2),
+        hovertemplate='%{x|%Y-%m-%d}<br>HV: %{y:.1f}%<extra></extra>'
+    ))
+
+    # Flat IV reference line
+    fig.add_hline(
+        y=avg_iv * 100,
+        line_dash='dash',
+        line_color=theme_config['current_price_color'],
+        annotation_text=f'Avg IV {avg_iv*100:.1f}%',
+        annotation_position='bottom right',
+        annotation_font_color=theme_config['current_price_color']
+    )
+
+    fig.update_layout(
+        title=f'{ticker} — Historical vs Implied Volatility',
+        xaxis_title='Date',
+        yaxis_title='Volatility (%)',
+        height=400,
+        hovermode='x unified'
+    )
+
+    return apply_chart_theme(fig)

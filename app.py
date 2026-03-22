@@ -14,10 +14,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # Import custom modules
-from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
 from strategies.strategies_factory import create_strategy
 from pricing import calculate_implied_volatility, calculate_greeks
-from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table
+from utils import (calculate_strategy_payoff, calculate_strategy_current_value,
+                   create_payoff_chart, create_heatmap, create_risk_table, format_price,
+                   create_unrealized_pl_table, create_iv_smile_chart, create_hv_vs_iv_chart)
+from data_fetch import (get_stock_price, get_option_chain, get_expiration_dates,
+                        get_stock_info, calculate_historical_volatility)
 
 # Page configuration with improved styling
 st.set_page_config(
@@ -697,12 +700,17 @@ def configure_strategy(ticker, current_price, expirations):
                         display_df['IV'] = display_df['IV'].apply(lambda x: f"{x*100:.1f}%")
                         st.dataframe(display_df, use_container_width=True)
                 
+                # Store option chain in session state for use in IV Analysis tab
+                st.session_state['calls_df'] = calls_df
+                st.session_state['puts_df'] = puts_df
+                st.session_state['last_ticker'] = ticker
+
                 # Strategy-specific configuration based on type
                 strategy_legs = configure_specific_strategy(
-                    strategy_category, strategy_type, ticker, current_price, 
+                    strategy_category, strategy_type, ticker, current_price,
                     selected_expiry, days_to_expiry, calls_df, puts_df
                 )
-                
+
                 return strategy_legs, selected_expiry, days_to_expiry
                 
         except Exception as e:
@@ -1609,11 +1617,12 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
     
     # Create tabs for different analysis views with improved design
     tabs = st.tabs([
-        "📈 Payoff Diagram", 
-        "📊 Risk Analysis", 
-        "⏱️ Time Decay", 
+        "📈 Payoff Diagram",
+        "📊 Risk Analysis",
+        "⏱️ Time Decay",
         "📱 Mobile View",
-        "💼 Position Analysis"  # New tab
+        "💼 Position Analysis",
+        "📉 IV Analysis"
     ])
     
     with tabs[0]:  # Payoff Diagram
@@ -2474,6 +2483,79 @@ def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_exp
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No position analysis available. Use custom entry prices to analyze your actual position.")
+
+        # CSV Export
+        st.divider()
+        st.subheader("Export")
+        try:
+            price_range_export = np.linspace(current_price * 0.7, current_price * 1.3, 50)
+            payoffs_export = calculate_strategy_payoff(strategy_legs, price_range_export, current_price)
+            export_df = pd.DataFrame({
+                'Stock Price': price_range_export.round(2),
+                'P/L at Expiration ($)': payoffs_export.round(2)
+            })
+            csv_data = export_df.to_csv(index=False)
+            st.download_button(
+                label="Download P/L as CSV",
+                data=csv_data,
+                file_name=f"strategy_pl_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime='text/csv'
+            )
+        except Exception as e:
+            logger.error(f"Error generating CSV export: {str(e)}")
+
+    with tabs[5]:  # IV Analysis
+        st.subheader("Implied Volatility Analysis")
+        try:
+            _calls_df = st.session_state.get('calls_df')
+            _puts_df = st.session_state.get('puts_df')
+            _iv_ticker = st.session_state.get('last_ticker', '')
+
+            # IV Smile chart
+            if _calls_df is not None and _puts_df is not None:
+                iv_smile_fig = create_iv_smile_chart(_calls_df, _puts_df, current_price)
+                st.plotly_chart(iv_smile_fig, use_container_width=True)
+            else:
+                st.info("Load an option chain to view the IV smile.")
+
+            # Historical vs Implied Volatility
+            st.subheader("Historical vs Implied Volatility")
+            if _iv_ticker:
+                try:
+                    with st.spinner("Loading historical volatility..."):
+                        hv_series = calculate_historical_volatility(_iv_ticker, period="1y", window=21)
+                        if not hv_series.empty:
+                            # Calculate average IV from the current option chain
+                            ivs = []
+                            if _calls_df is not None and 'impliedVolatility' in _calls_df.columns:
+                                ivs += _calls_df['impliedVolatility'].dropna().tolist()
+                            if _puts_df is not None and 'impliedVolatility' in _puts_df.columns:
+                                ivs += _puts_df['impliedVolatility'].dropna().tolist()
+                            avg_iv = float(np.mean(ivs)) if ivs else 0.3
+
+                            hv_fig = create_hv_vs_iv_chart(hv_series, avg_iv, _iv_ticker)
+                            st.plotly_chart(hv_fig, use_container_width=True)
+
+                            # IV vs HV metrics
+                            current_hv = float(hv_series.iloc[-1])
+                            iv_hv_ratio = avg_iv / current_hv if current_hv > 0 else 1.0
+                            metric_cols = st.columns(3)
+                            metric_cols[0].metric("Current HV (21d)", f"{current_hv*100:.1f}%")
+                            metric_cols[1].metric("Avg IV", f"{avg_iv*100:.1f}%")
+                            metric_cols[2].metric(
+                                "IV/HV Ratio",
+                                f"{iv_hv_ratio:.2f}x",
+                                delta="Expensive" if iv_hv_ratio > 1.2 else ("Cheap" if iv_hv_ratio < 0.8 else "Fair"),
+                                delta_color="inverse" if iv_hv_ratio > 1.2 else "normal"
+                            )
+                except Exception as e:
+                    st.warning(f"Could not load historical volatility: {str(e)}")
+            else:
+                st.info("Select a ticker to view historical vs implied volatility.")
+
+        except Exception as e:
+            st.error(f"Error in IV Analysis: {str(e)}")
+            logger.error(f"IV Analysis error: {str(e)}", exc_info=True)
 
 # Main app flow
 def main():

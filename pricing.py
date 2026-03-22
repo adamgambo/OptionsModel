@@ -213,9 +213,16 @@ def calculate_implied_volatility(option_type, S, K, t, r, market_price, precisio
         # Define the objective function (difference between BS price and market price)
         def objective(sigma):
             return black_scholes(option_type, S, K, t, r, sigma) - market_price
-        
+
+        # Smarter initial guess using Brenner-Subrahmanyam approximation
+        try:
+            sigma0 = np.sqrt(2 * np.pi / t) * market_price / S
+            sigma0 = max(0.05, min(sigma0, 3.0))
+        except Exception:
+            sigma0 = 0.3
+
         # Use scipy's root finding to find IV
-        result = optimize.newton(objective, x0=0.3, tol=precision, maxiter=max_iterations)
+        result = optimize.newton(objective, x0=sigma0, tol=precision, maxiter=max_iterations)
         
         # Ensure result is within reasonable bounds
         result = max(0.0001, min(result, 5.0))  # Cap IV between 0.01% and 500%
@@ -279,10 +286,11 @@ def _calculate_iv_bisection(option_type, S, K, t, r, market_price, min_vol=0.000
     # Return the midpoint if we don't converge
     return (min_vol + max_vol) / 2
 
-def binomial_tree_price(option_type, S, K, t, r, sigma, steps=100, american=False):
+def binomial_tree_price(option_type, S, K, t, r, sigma, steps=100, american=False, q=0.0):
     """
-    Calculate option price using the binomial tree model, which can handle American options.
-    
+    Calculate option price using the binomial tree model, which can handle American options
+    and continuous dividend yields.
+
     Parameters:
         option_type (str): 'call' or 'put'
         S (float): Current stock price
@@ -292,7 +300,8 @@ def binomial_tree_price(option_type, S, K, t, r, sigma, steps=100, american=Fals
         sigma (float): Implied volatility (decimal)
         steps (int): Number of time steps in the tree
         american (bool): True for American options, False for European
-    
+        q (float): Continuous dividend yield (decimal, default 0.0)
+
     Returns:
         float: Option price
     """
@@ -303,16 +312,18 @@ def binomial_tree_price(option_type, S, K, t, r, sigma, steps=100, american=Fals
             return max(0, S - K)
         else:
             return max(0, K - S)
-    
+
     if sigma <= 0:
         sigma = 0.0001  # Prevent division by zero
-    
+
+    q = float(q)
+
     try:
-        # Calculate parameters for the tree
+        # Calculate parameters for the tree (CRR with dividend yield)
         dt = t / steps
         u = np.exp(sigma * np.sqrt(dt))
         d = 1 / u
-        p = (np.exp(r * dt) - d) / (u - d)
+        p = (np.exp((r - q) * dt) - d) / (u - d)
         discount = np.exp(-r * dt)
         
         # Initialize asset prices at each node of the final step
@@ -382,11 +393,16 @@ def monte_carlo_price(option_type, S, K, t, r, sigma, paths=10000, steps=100):
         # Time step
         dt = t / steps
 
-        # Vectorized simulation: generate all random shocks at once (paths x steps)
-        Z = np.random.standard_normal((paths, steps))
-        log_returns = (r - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z
-        # Final stock prices via cumulative log returns
-        final_prices = S * np.exp(np.sum(log_returns, axis=1))
+        # Antithetic variates: generate half the paths and mirror them to reduce variance
+        half = paths // 2
+        Z = np.random.standard_normal((half, steps))
+        drift = (r - 0.5 * sigma**2) * dt
+        diffusion = sigma * np.sqrt(dt)
+        log_ret = drift + diffusion * Z
+        log_ret_anti = drift + diffusion * (-Z)
+        final_prices = S * np.exp(
+            np.concatenate([np.sum(log_ret, axis=1), np.sum(log_ret_anti, axis=1)])
+        )
 
         # Calculate payoffs
         if option_type.lower() == "call":
@@ -405,10 +421,10 @@ def monte_carlo_price(option_type, S, K, t, r, sigma, paths=10000, steps=100):
         return black_scholes(option_type, S, K, t, r, sigma)
 
 @st.cache_data
-def price_option(pricing_method, option_type, S, K, t, r, sigma, american=False):
+def price_option(pricing_method, option_type, S, K, t, r, sigma, american=False, q=0.0):
     """
     Price an option using the specified method.
-    
+
     Parameters:
         pricing_method (str): 'black_scholes', 'binomial', or 'monte_carlo'
         option_type (str): 'call' or 'put'
@@ -418,14 +434,15 @@ def price_option(pricing_method, option_type, S, K, t, r, sigma, american=False)
         r (float): Risk-free interest rate (decimal)
         sigma (float): Implied volatility (decimal)
         american (bool): True for American options (only for binomial)
-    
+        q (float): Continuous dividend yield (decimal, default 0.0)
+
     Returns:
         float: Option price
     """
     if pricing_method == 'black_scholes':
-        return black_scholes(option_type, S, K, t, r, sigma)
+        return black_scholes(option_type, S, K, t, r, sigma, q=q)
     elif pricing_method == 'binomial':
-        return binomial_tree_price(option_type, S, K, t, r, sigma, american=american)
+        return binomial_tree_price(option_type, S, K, t, r, sigma, american=american, q=q)
     elif pricing_method == 'monte_carlo':
         return monte_carlo_price(option_type, S, K, t, r, sigma)
     else:

@@ -457,6 +457,26 @@ def get_option_statistics(ticker):
         logger.error(f"Error calculating option statistics for {ticker}: {str(e)}")
         return {'avg_iv': 0.3, 'iv_skew': 0, 'iv_term_structure': []}
 
+@st.cache_data(ttl=300)
+def calculate_historical_volatility(ticker, period="1y", window=21):
+    """
+    Calculate rolling historical (realized) volatility for a ticker.
+
+    Parameters:
+        ticker (str): Stock ticker symbol
+        period (str): History period passed to get_historical_data
+        window (int): Rolling window in trading days (default 21 ≈ 1 month)
+
+    Returns:
+        pd.Series: Annualized historical volatility indexed by date.
+                   The most recent value is the current HV estimate.
+    """
+    data = get_historical_data(ticker, period=period)
+    log_returns = np.log(data['Close'] / data['Close'].shift(1)).dropna()
+    hv = log_returns.rolling(window=window).std() * np.sqrt(252)
+    return hv.dropna()
+
+
 def get_option_by_strike(chain, strike):
     """
     Find the option with the closest strike price to the target strike.
