@@ -1434,42 +1434,44 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
         if strategy_type == "Iron Condor":
             # Implement Iron Condor with interactive strike selection
             st.subheader("Bull Put Spread (Lower Strikes)")
-            
+
             # Bull Put Spread configuration (lower part)
             available_put_strikes = sorted(puts_df['strike'].unique().tolist())
-            atm_index_put = min(range(len(available_put_strikes)), 
-                               key=lambda i: abs(available_put_strikes[i] - current_price))
-            
-            # Interactive slider for put spread with visual indicator
+            n_put = len(available_put_strikes)
+            atm_index_put = min(range(n_put), key=lambda i: abs(available_put_strikes[i] - current_price))
+
+            # Ensure the two slider handles are always different (ascending order required)
+            _put_lower = max(0, atm_index_put - 5)
+            _put_upper = min(n_put - 1, max(_put_lower + 1, atm_index_put - 2))
+
             put_spread_range = st.slider(
                 "Put Spread Strikes",
                 min_value=0,
-                max_value=len(available_put_strikes)-1,
-                value=(max(0, atm_index_put-5), max(0, atm_index_put-2)),
+                max_value=n_put - 1,
+                value=(_put_lower, _put_upper),
                 format_func=lambda i: f"${available_put_strikes[i]:.2f}"
             )
-            
+
             long_put_index, short_put_index = put_spread_range
             long_put_strike = available_put_strikes[long_put_index]
             short_put_strike = available_put_strikes[short_put_index]
-            
-            # Get option data for puts
+
+            # Get option data for puts (ensure Python float, floor at 0.01)
             long_put_data = puts_df[puts_df['strike'] == long_put_strike].iloc[0]
             short_put_data = puts_df[puts_df['strike'] == short_put_strike].iloc[0]
-            long_put_market_premium = long_put_data['lastPrice']
-            short_put_market_premium = short_put_data['lastPrice']
-            
+            long_put_market_premium = max(0.01, float(long_put_data['lastPrice']))
+            short_put_market_premium = max(0.01, float(short_put_data['lastPrice']))
+
             # Allow custom entry prices for put legs
             put_col1, put_col2 = st.columns(2)
-            
+
             with put_col1:
                 st.subheader("Long Put Settings")
                 use_custom_long_put = st.checkbox("Custom long put entry")
                 if use_custom_long_put:
                     long_put_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
+                        "Your purchase price",
+                        min_value=0.01,
                         value=long_put_market_premium,
                         step=0.01,
                         format="%.2f",
@@ -1477,17 +1479,16 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     )
                 else:
                     long_put_entry_premium = long_put_market_premium
-                
+
                 st.metric("Market Premium", f"${long_put_market_premium:.2f}")
-            
+
             with put_col2:
                 st.subheader("Short Put Settings")
                 use_custom_short_put = st.checkbox("Custom short put entry")
                 if use_custom_short_put:
                     short_put_entry_premium = st.number_input(
-                        "Your sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
+                        "Your sale price",
+                        min_value=0.01,
                         value=short_put_market_premium,
                         step=0.01,
                         format="%.2f",
@@ -1495,47 +1496,48 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     )
                 else:
                     short_put_entry_premium = short_put_market_premium
-                
+
                 st.metric("Market Premium", f"${short_put_market_premium:.2f}")
-            
+
             # Bear Call Spread configuration (upper part)
             st.subheader("Bear Call Spread (Higher Strikes)")
-            
+
             available_call_strikes = sorted(calls_df['strike'].unique().tolist())
-            atm_index_call = min(range(len(available_call_strikes)), 
-                                key=lambda i: abs(available_call_strikes[i] - current_price))
-            
-            # Interactive slider for call spread with visual indicator
+            n_call = len(available_call_strikes)
+            atm_index_call = min(range(n_call), key=lambda i: abs(available_call_strikes[i] - current_price))
+
+            # Ensure the two slider handles are always different
+            _call_lower = min(n_call - 2, max(0, atm_index_call + 2))
+            _call_upper = min(n_call - 1, max(_call_lower + 1, atm_index_call + 5))
+
             call_spread_range = st.slider(
                 "Call Spread Strikes",
                 min_value=0,
-                max_value=len(available_call_strikes)-1,
-                value=(min(len(available_call_strikes)-1, atm_index_call+2), 
-                       min(len(available_call_strikes)-1, atm_index_call+5)),
+                max_value=n_call - 1,
+                value=(_call_lower, _call_upper),
                 format_func=lambda i: f"${available_call_strikes[i]:.2f}"
             )
-            
+
             short_call_index, long_call_index = call_spread_range
             short_call_strike = available_call_strikes[short_call_index]
             long_call_strike = available_call_strikes[long_call_index]
-            
-            # Get option data for calls
+
+            # Get option data for calls (ensure Python float, floor at 0.01)
             short_call_data = calls_df[calls_df['strike'] == short_call_strike].iloc[0]
             long_call_data = calls_df[calls_df['strike'] == long_call_strike].iloc[0]
-            short_call_market_premium = short_call_data['lastPrice']
-            long_call_market_premium = long_call_data['lastPrice']
-            
+            short_call_market_premium = max(0.01, float(short_call_data['lastPrice']))
+            long_call_market_premium = max(0.01, float(long_call_data['lastPrice']))
+
             # Allow custom entry prices for call legs
             call_col1, call_col2 = st.columns(2)
-            
+
             with call_col1:
                 st.subheader("Short Call Settings")
                 use_custom_short_call = st.checkbox("Custom short call entry")
                 if use_custom_short_call:
                     short_call_entry_premium = st.number_input(
-                        "Your sale price", 
-                        min_value=0.01, 
-                        max_value=None, 
+                        "Your sale price",
+                        min_value=0.01,
                         value=short_call_market_premium,
                         step=0.01,
                         format="%.2f",
@@ -1543,17 +1545,16 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     )
                 else:
                     short_call_entry_premium = short_call_market_premium
-                
+
                 st.metric("Market Premium", f"${short_call_market_premium:.2f}")
-            
+
             with call_col2:
                 st.subheader("Long Call Settings")
                 use_custom_long_call = st.checkbox("Custom long call entry")
                 if use_custom_long_call:
                     long_call_entry_premium = st.number_input(
-                        "Your purchase price", 
-                        min_value=0.01, 
-                        max_value=None, 
+                        "Your purchase price",
+                        min_value=0.01,
                         value=long_call_market_premium,
                         step=0.01,
                         format="%.2f",
@@ -1561,7 +1562,7 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     )
                 else:
                     long_call_entry_premium = long_call_market_premium
-                
+
                 st.metric("Market Premium", f"${long_call_market_premium:.2f}")
             
             # Calculate net credit and strategy metrics for entry prices
