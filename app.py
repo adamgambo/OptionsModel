@@ -619,15 +619,23 @@ def configure_strategy(ticker, current_price, expirations):
                 "Bear Call Credit Spread",
                 "Calendar Spread",
                 "Poor Man's Covered Call",
-                "Ratio Back Spread"
+                "Ratio Back Spread",
+                "Synthetic Long",
+                "Synthetic Short",
+                "Call Ratio Spread",
+                "Put Ratio Spread"
             ])
         elif strategy_category == "Advanced Strategies":
             strategy_type = st.selectbox("Strategy", [
                 "Iron Condor",
+                "Iron Butterfly",
                 "Butterfly",
                 "Straddle",
                 "Strangle",
+                "Strip",
+                "Strap",
                 "Collar",
+                "Jade Lizard",
                 "Diagonal Spread",
                 "Double Diagonal Spread"
             ])
@@ -1363,9 +1371,65 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                     short_iv=short_option.get('impliedVolatility', 0.3)
                 )
         
-        # Implementation for other strategies...
-        # (Iron Condor, Bear Put Spread, etc.)
-    
+        elif strategy_type in ("Synthetic Long", "Synthetic Short"):
+            is_long = strategy_type == "Synthetic Long"
+            available_strikes = sorted(calls_df['strike'].unique().tolist())
+            atm_index = min(range(len(available_strikes)), key=lambda i: abs(available_strikes[i] - current_price))
+            selected_strike_index = st.select_slider(
+                "Strike (ATM recommended)",
+                options=range(len(available_strikes)),
+                value=atm_index,
+                format_func=lambda i: f"${available_strikes[i]:.2f}"
+            )
+            selected_strike = available_strikes[selected_strike_index]
+            call_data = calls_df[calls_df['strike'] == selected_strike].iloc[0]
+            put_data  = puts_df[puts_df['strike'] == selected_strike].iloc[0] if selected_strike in puts_df['strike'].values else call_data
+            call_mkt  = call_data['lastPrice']
+            put_mkt   = put_data['lastPrice']
+            net = call_mkt - put_mkt if is_long else put_mkt - call_mkt
+            st.metric("Net Debit / (Credit)", f"${net:.2f}", delta="Debit" if net > 0 else "Credit")
+            quantity = st.number_input("Quantity (# of contracts)", min_value=1, value=1)
+            strategy_key = "synthetic_long" if is_long else "synthetic_short"
+            return create_strategy(strategy_key, strike=selected_strike, expiration=expiry,
+                                   call_premium=call_mkt, put_premium=put_mkt, quantity=quantity,
+                                   call_iv=call_data.get('impliedVolatility', 0.3),
+                                   put_iv=put_data.get('impliedVolatility', 0.3))
+
+        elif strategy_type in ("Call Ratio Spread", "Put Ratio Spread"):
+            is_call = strategy_type == "Call Ratio Spread"
+            chain_df = calls_df if is_call else puts_df
+            available_strikes = sorted(chain_df['strike'].unique().tolist())
+            atm_index = min(range(len(available_strikes)), key=lambda i: abs(available_strikes[i] - current_price))
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                long_idx = st.select_slider("Long Strike", options=range(len(available_strikes)),
+                                            value=atm_index, format_func=lambda i: f"${available_strikes[i]:.2f}")
+                long_strike = available_strikes[long_idx]
+                long_opt = chain_df[chain_df['strike'] == long_strike].iloc[0]
+                st.metric("Long Premium", f"${long_opt['lastPrice']:.2f}")
+            with col2:
+                short_options = range(long_idx + 1, len(available_strikes)) if is_call else range(0, long_idx)
+                short_default = min(long_idx + 3, len(available_strikes) - 1) if is_call else max(long_idx - 3, 0)
+                short_idx = st.select_slider("Short Strike", options=list(short_options),
+                                             value=short_default, format_func=lambda i: f"${available_strikes[i]:.2f}")
+                short_strike = available_strikes[short_idx]
+                short_opt = chain_df[chain_df['strike'] == short_strike].iloc[0]
+                st.metric("Short Premium (each)", f"${short_opt['lastPrice']:.2f}")
+            with col3:
+                ratio = st.number_input("Ratio (short per long)", min_value=2, value=2)
+                quantity = st.number_input("Quantity", min_value=1, value=1)
+            net = short_opt['lastPrice'] * ratio - long_opt['lastPrice']
+            st.metric("Net Debit / (Credit)", f"${net:.2f}", delta="Credit" if net > 0 else "Debit")
+            strategy_key = "call_ratio_spread" if is_call else "put_ratio_spread"
+            kwargs = dict(expiration=expiry, long_premium=long_opt['lastPrice'],
+                          short_premium=short_opt['lastPrice'], ratio=ratio, quantity=quantity,
+                          long_iv=long_opt.get('impliedVolatility', 0.3), short_iv=short_opt.get('impliedVolatility', 0.3))
+            if is_call:
+                kwargs.update(long_strike=long_strike, short_strike=short_strike)
+            else:
+                kwargs.update(short_strike=short_strike, long_strike=long_strike)
+            return create_strategy(strategy_key, **kwargs)
+
     elif category == "Advanced Strategies":
         if strategy_type == "Iron Condor":
             # Implement Iron Condor with interactive strike selection
@@ -1567,7 +1631,126 @@ def configure_specific_strategy(category, strategy_type, ticker, current_price,
                 short_call_iv=short_call_data.get('impliedVolatility', 0.3),
                 long_call_iv=long_call_data.get('impliedVolatility', 0.3)
             )
-    
+
+        elif strategy_type == "Iron Butterfly":
+            available_strikes = sorted(calls_df['strike'].unique().tolist())
+            atm_idx = min(range(len(available_strikes)), key=lambda i: abs(available_strikes[i] - current_price))
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                wing_put_idx = st.select_slider("Long Put Wing", options=range(len(available_strikes)),
+                                                value=max(0, atm_idx - 4), format_func=lambda i: f"${available_strikes[i]:.2f}")
+                put_wing_strike = available_strikes[wing_put_idx]
+                put_wing_data = puts_df[puts_df['strike'] == put_wing_strike].iloc[0]
+            with col2:
+                atm_select_idx = st.select_slider("ATM Strike (short straddle)", options=range(len(available_strikes)),
+                                                  value=atm_idx, format_func=lambda i: f"${available_strikes[i]:.2f}")
+                atm_strike = available_strikes[atm_select_idx]
+                atm_call_data = calls_df[calls_df['strike'] == atm_strike].iloc[0]
+                atm_put_data  = puts_df[puts_df['strike'] == atm_strike].iloc[0]
+            with col3:
+                wing_call_idx = st.select_slider("Long Call Wing", options=range(len(available_strikes)),
+                                                 value=min(len(available_strikes) - 1, atm_idx + 4),
+                                                 format_func=lambda i: f"${available_strikes[i]:.2f}")
+                call_wing_strike = available_strikes[wing_call_idx]
+                call_wing_data = calls_df[calls_df['strike'] == call_wing_strike].iloc[0]
+            net_credit = (atm_call_data['lastPrice'] + atm_put_data['lastPrice']
+                          - put_wing_data['lastPrice'] - call_wing_data['lastPrice'])
+            metrics_c = st.columns(3)
+            metrics_c[0].metric("Net Credit", f"${net_credit:.2f}")
+            metrics_c[1].metric("Max Profit", f"${net_credit * 100:.2f}")
+            put_width = atm_strike - put_wing_strike
+            call_width = call_wing_strike - atm_strike
+            max_loss = (min(put_width, call_width) - net_credit) * 100
+            metrics_c[2].metric("Max Loss", f"${max_loss:.2f}")
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            return create_strategy("iron_butterfly",
+                                   put_long_strike=put_wing_strike, atm_strike=atm_strike,
+                                   call_long_strike=call_wing_strike, expiration=expiry,
+                                   put_long_premium=put_wing_data['lastPrice'],
+                                   atm_put_premium=atm_put_data['lastPrice'],
+                                   atm_call_premium=atm_call_data['lastPrice'],
+                                   call_long_premium=call_wing_data['lastPrice'],
+                                   quantity=quantity,
+                                   put_long_iv=put_wing_data.get('impliedVolatility', 0.3),
+                                   atm_put_iv=atm_put_data.get('impliedVolatility', 0.3),
+                                   atm_call_iv=atm_call_data.get('impliedVolatility', 0.3),
+                                   call_long_iv=call_wing_data.get('impliedVolatility', 0.3))
+
+        elif strategy_type == "Jade Lizard":
+            available_put_strikes  = sorted(puts_df['strike'].unique().tolist())
+            available_call_strikes = sorted(calls_df['strike'].unique().tolist())
+            atm_put_idx  = min(range(len(available_put_strikes)),  key=lambda i: abs(available_put_strikes[i]  - current_price))
+            atm_call_idx = min(range(len(available_call_strikes)), key=lambda i: abs(available_call_strikes[i] - current_price))
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.subheader("Short OTM Put")
+                put_idx = st.select_slider("Put Strike", options=range(len(available_put_strikes)),
+                                           value=max(0, atm_put_idx - 3), format_func=lambda i: f"${available_put_strikes[i]:.2f}")
+                put_strike = available_put_strikes[put_idx]
+                put_data = puts_df[puts_df['strike'] == put_strike].iloc[0]
+                st.metric("Put Premium", f"${put_data['lastPrice']:.2f}")
+            with col2:
+                st.subheader("Short OTM Call")
+                cs_idx = st.select_slider("Short Call Strike", options=range(len(available_call_strikes)),
+                                          value=min(len(available_call_strikes)-1, atm_call_idx+3),
+                                          format_func=lambda i: f"${available_call_strikes[i]:.2f}")
+                cs_strike = available_call_strikes[cs_idx]
+                cs_data = calls_df[calls_df['strike'] == cs_strike].iloc[0]
+                st.metric("Short Call Premium", f"${cs_data['lastPrice']:.2f}")
+            with col3:
+                st.subheader("Long OTM Call")
+                cl_options = range(cs_idx + 1, len(available_call_strikes))
+                if cl_options:
+                    cl_idx = st.select_slider("Long Call Strike", options=list(cl_options),
+                                              value=min(cs_idx+3, len(available_call_strikes)-1),
+                                              format_func=lambda i: f"${available_call_strikes[i]:.2f}")
+                    cl_strike = available_call_strikes[cl_idx]
+                    cl_data = calls_df[calls_df['strike'] == cl_strike].iloc[0]
+                    st.metric("Long Call Premium", f"${cl_data['lastPrice']:.2f}")
+                else:
+                    st.error("No higher call strikes available")
+                    return None
+            net_credit = put_data['lastPrice'] + cs_data['lastPrice'] - cl_data['lastPrice']
+            call_width = cl_strike - cs_strike
+            no_upside_risk = net_credit >= call_width
+            credit_cols = st.columns(2)
+            credit_cols[0].metric("Net Credit", f"${net_credit:.2f}")
+            credit_cols[1].metric("Upside Risk", "None" if no_upside_risk else f"${(call_width - net_credit)*100:.2f}",
+                                  delta="✓ Properly structured" if no_upside_risk else "Increase credit or narrow spread")
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            return create_strategy("jade_lizard",
+                                   put_strike=put_strike, call_short_strike=cs_strike, call_long_strike=cl_strike,
+                                   expiration=expiry,
+                                   put_premium=put_data['lastPrice'],
+                                   call_short_premium=cs_data['lastPrice'],
+                                   call_long_premium=cl_data['lastPrice'],
+                                   quantity=quantity,
+                                   put_iv=put_data.get('impliedVolatility', 0.3),
+                                   call_short_iv=cs_data.get('impliedVolatility', 0.3),
+                                   call_long_iv=cl_data.get('impliedVolatility', 0.3))
+
+        elif strategy_type in ("Strip", "Strap"):
+            is_strip = strategy_type == "Strip"
+            available_strikes = sorted(calls_df['strike'].unique().tolist())
+            atm_idx = min(range(len(available_strikes)), key=lambda i: abs(available_strikes[i] - current_price))
+            strike_idx = st.select_slider("Strike", options=range(len(available_strikes)),
+                                          value=atm_idx, format_func=lambda i: f"${available_strikes[i]:.2f}")
+            strike = available_strikes[strike_idx]
+            call_data = calls_df[calls_df['strike'] == strike].iloc[0]
+            put_data  = puts_df[puts_df['strike'] == strike].iloc[0]
+            call_prem, put_prem = call_data['lastPrice'], put_data['lastPrice']
+            total_cost = (call_prem + put_prem * 2) if is_strip else (call_prem * 2 + put_prem)
+            cols = st.columns(3)
+            cols[0].metric("Call Premium", f"${call_prem:.2f}")
+            cols[1].metric("Put Premium", f"${put_prem:.2f}")
+            cols[2].metric("Total Cost", f"${total_cost:.2f} / ${total_cost*100:.2f}")
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            strategy_key = "strip" if is_strip else "strap"
+            return create_strategy(strategy_key, strike=strike, expiration=expiry,
+                                   call_premium=call_prem, put_premium=put_prem, quantity=quantity,
+                                   call_iv=call_data.get('impliedVolatility', 0.3),
+                                   put_iv=put_data.get('impliedVolatility', 0.3))
+
     elif category == "Custom Strategies":
         expiration_dates = get_expiration_dates(ticker) if ticker else []
         strategy_options = ["Enhanced Strategy Builder"]

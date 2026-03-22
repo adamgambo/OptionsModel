@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Application information
 APP_NAME = "Options Strategy Calculator"
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.5.0"
 APP_DESCRIPTION = "A comprehensive Python-based web application for analyzing and visualizing options trading strategies using real-time market data."
 APP_AUTHOR = "Options Analyzer Team"
 
@@ -107,14 +107,22 @@ STRATEGY_CATEGORIES = {
         "Bear Call Credit Spread",
         "Calendar Spread",
         "Poor Man's Covered Call",
-        "Ratio Back Spread"
+        "Ratio Back Spread",
+        "Synthetic Long",
+        "Synthetic Short",
+        "Call Ratio Spread",
+        "Put Ratio Spread"
     ],
     "Advanced Strategies": [
         "Iron Condor",
+        "Iron Butterfly",
         "Butterfly",
-        "Straddle", 
+        "Straddle",
         "Strangle",
+        "Strip",
+        "Strap",
         "Collar",
+        "Jade Lizard",
         "Diagonal Spread",
         "Double Diagonal Spread"
     ],
@@ -147,6 +155,14 @@ STRATEGY_NAME_TO_TYPE = {
     "Collar": "collar",
     "Diagonal Spread": "diagonal_spread",
     "Double Diagonal Spread": "double_diagonal_spread",
+    "Synthetic Long": "synthetic_long",
+    "Synthetic Short": "synthetic_short",
+    "Call Ratio Spread": "call_ratio_spread",
+    "Put Ratio Spread": "put_ratio_spread",
+    "Iron Butterfly": "iron_butterfly",
+    "Jade Lizard": "jade_lizard",
+    "Strip": "strip",
+    "Strap": "strap",
     "Custom - 2 Legs": "custom",
     "Custom - 3 Legs": "custom",
     "Custom - 4 Legs": "custom"
@@ -336,6 +352,82 @@ STRATEGY_INFO = {
         - **When to Use**: Neutral with expectation of increased volatility
         - **Example**: Buy XYZ $45 Put expiring in 3 months, sell XYZ $50 Put expiring in 1 month,
                       sell XYZ $55 Call expiring in 1 month, buy XYZ $60 Call expiring in 3 months
+    """,
+    "Synthetic Long": """
+        **Synthetic Long Stock**: Long call + Short put at the same strike and expiration.
+
+        - **Max Loss**: Significant downside risk (like owning stock)
+        - **Max Gain**: Unlimited (stock rises above strike + net debit/credit)
+        - **Breakeven**: Strike ± net premium
+        - **When to Use**: Bullish stock replacement with less capital; useful when stock is expensive to buy
+        - **Example**: Buy XYZ $50 Call for $2.00, sell XYZ $50 Put for $2.00 (near zero cost)
+    """,
+    "Synthetic Short": """
+        **Synthetic Short Stock**: Short call + Long put at the same strike and expiration.
+
+        - **Max Loss**: Unlimited (stock rises indefinitely)
+        - **Max Gain**: Strike − net premium (if stock goes to zero)
+        - **Breakeven**: Strike ± net premium
+        - **When to Use**: Bearish stock replacement; useful when hard to borrow or expensive to short
+        - **Example**: Sell XYZ $50 Call for $2.00, buy XYZ $50 Put for $2.00
+    """,
+    "Call Ratio Spread": """
+        **Call Ratio Spread**: Buy 1 call at a lower strike, sell 2 (or more) calls at a higher strike.
+
+        - **Max Loss**: Unlimited above the short calls (if ratio > 1); limited below entry
+        - **Max Gain**: Short strike − long strike − net debit (profit at short strike)
+        - **Breakeven**: Long strike + net debit (lower) and short strike + max profit / ratio (upper)
+        - **When to Use**: Mildly bullish; can often be entered for a credit
+        - **Example**: Buy XYZ $50 Call for $3.00, sell 2× XYZ $55 Calls for $1.75 each (net $0.50 credit)
+    """,
+    "Put Ratio Spread": """
+        **Put Ratio Spread**: Buy 1 put at a higher strike, sell 2 (or more) puts at a lower strike.
+
+        - **Max Loss**: Unlimited below the short puts (if ratio > 1)
+        - **Max Gain**: Long strike − short strike − net debit (profit at short strike)
+        - **Breakeven**: Long strike − net debit (upper) and short strike − max profit / ratio (lower)
+        - **When to Use**: Mildly bearish; can often be entered for a credit
+        - **Example**: Buy XYZ $50 Put for $3.00, sell 2× XYZ $45 Puts for $1.75 each
+    """,
+    "Iron Butterfly": """
+        **Iron Butterfly**: Sell an ATM straddle and buy OTM wings for protection.
+        Higher premium than an Iron Condor but narrower profit zone.
+
+        - **Max Loss**: Wing width − net credit (on either side)
+        - **Max Gain**: Net credit received (stock closes exactly at ATM strike)
+        - **Breakeven**: ATM strike ± net credit
+        - **When to Use**: Neutral — expect stock to pin at ATM strike at expiration; high IV environments
+        - **Example**: Buy $45 Put, sell $50 Put, sell $50 Call, buy $55 Call for $3.00 net credit
+    """,
+    "Jade Lizard": """
+        **Jade Lizard**: Short OTM put + short OTM call spread (bear call spread above market).
+        Structured so net credit > call spread width → **no upside risk**.
+
+        - **Max Loss**: Put strike − net credit (downside); zero on the upside if structured correctly
+        - **Max Gain**: Net credit received (stock stays between put strike and short call strike)
+        - **Breakeven**: Put strike − net credit
+        - **When to Use**: Bullish to neutral; popular in high-IV stocks to collect rich put premium
+        - **Example**: Sell $45 Put for $2.00, sell $55 Call for $1.00, buy $60 Call for $0.50 (net $2.50 credit > $5 width? No — credit $2.50 < width $5, adjust accordingly)
+    """,
+    "Strip": """
+        **Strip**: Long 1 call + Long 2 puts at the same strike and expiration.
+        A directional straddle biased to the downside.
+
+        - **Max Loss**: Total premiums paid (call + 2 × put)
+        - **Max Gain**: Unlimited to the downside (2× put leverage); unlimited to the upside
+        - **Breakeven**: Strike + total premiums (upside) | Strike − total premiums / 2 (downside)
+        - **When to Use**: Expecting a large move, more likely down than up
+        - **Example**: Buy XYZ $50 Call for $2.00, buy 2× XYZ $50 Puts for $1.50 each (total cost $5.00)
+    """,
+    "Strap": """
+        **Strap**: Long 2 calls + Long 1 put at the same strike and expiration.
+        A directional straddle biased to the upside.
+
+        - **Max Loss**: Total premiums paid (2 × call + put)
+        - **Max Gain**: Unlimited to the upside (2× call leverage); significant to the downside
+        - **Breakeven**: Strike + total premiums / 2 (upside) | Strike − total premiums (downside)
+        - **When to Use**: Expecting a large move, more likely up than down
+        - **Example**: Buy 2× XYZ $50 Calls for $2.00 each, buy XYZ $50 Put for $1.50 (total cost $5.50)
     """,
     "Custom - 2 Legs": """
         **Custom 2-Leg Strategy**: Build your own strategy with 2 legs.

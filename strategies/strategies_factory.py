@@ -13,11 +13,13 @@ from .basic_strategies import (
 )
 from .spread_strategies import (
     bull_call_spread, bear_put_spread, bull_put_spread, bear_call_spread,
-    calendar_spread, poor_mans_covered_call, ratio_backspread
+    calendar_spread, poor_mans_covered_call, ratio_backspread,
+    synthetic_long, synthetic_short, call_ratio_spread, put_ratio_spread
 )
 from .advanced_strategies import (
     iron_condor, butterfly, straddle, strangle, collar,
-    diagonal_spread, double_diagonal_spread
+    diagonal_spread, double_diagonal_spread,
+    iron_butterfly, jade_lizard, strip, strap
 )
 from .custom_strategy import custom_strategy
 
@@ -66,6 +68,18 @@ def create_strategy(strategy_type: str, **kwargs) -> List[Dict[str, Any]]:
         "diagonal_spread": diagonal_spread,
         "double_diagonal_spread": double_diagonal_spread,
         
+        # New spread strategies
+        "synthetic_long": synthetic_long,
+        "synthetic_short": synthetic_short,
+        "call_ratio_spread": call_ratio_spread,
+        "put_ratio_spread": put_ratio_spread,
+
+        # New advanced strategies
+        "iron_butterfly": iron_butterfly,
+        "jade_lizard": jade_lizard,
+        "strip": strip,
+        "strap": strap,
+
         # Custom strategies
         "custom": custom_strategy
     }

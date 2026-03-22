@@ -410,5 +410,177 @@ def ratio_backspread(short_strike, long_strike, expiration,
             'quantity': quantity,
             'iv': long_iv
         })
-    
+
     return strategy_legs
+
+
+def synthetic_long(strike, expiration,
+                   call_premium=0.0, put_premium=0.0,
+                   current_call_premium=None, current_put_premium=None,
+                   quantity=1, call_iv=0.3, put_iv=0.3):
+    """
+    Synthetic Long Stock: Long call + Short put at the same strike and expiration.
+    Replicates owning 100 shares of stock but with less capital.
+    Profit/loss mirrors a long stock position from the strike price.
+    Bullish — unlimited upside, significant downside risk.
+
+    Parameters:
+        strike (float): Strike price for both legs (ideally ATM)
+        expiration (str): Expiration date YYYY-MM-DD
+        call_premium (float): Premium paid for the long call
+        put_premium (float): Premium received for the short put
+    """
+    if current_call_premium is None:
+        current_call_premium = call_premium
+    if current_put_premium is None:
+        current_put_premium = put_premium
+
+    return [
+        # Long call
+        {
+            'type': 'call', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': call_premium, 'current_price': current_call_premium,
+            'quantity': quantity, 'iv': call_iv
+        },
+        # Short put
+        {
+            'type': 'put', 'position': 'short',
+            'strike': strike, 'expiry': str(expiration),
+            'price': put_premium, 'current_price': current_put_premium,
+            'quantity': quantity, 'iv': put_iv
+        },
+    ]
+
+
+def synthetic_short(strike, expiration,
+                    call_premium=0.0, put_premium=0.0,
+                    current_call_premium=None, current_put_premium=None,
+                    quantity=1, call_iv=0.3, put_iv=0.3):
+    """
+    Synthetic Short Stock: Short call + Long put at the same strike and expiration.
+    Replicates shorting 100 shares of stock.
+    Profit/loss mirrors a short stock position from the strike price.
+    Bearish — unlimited loss on upside, profit as stock falls.
+
+    Parameters:
+        strike (float): Strike price for both legs (ideally ATM)
+        expiration (str): Expiration date YYYY-MM-DD
+        call_premium (float): Premium received for the short call
+        put_premium (float): Premium paid for the long put
+    """
+    if current_call_premium is None:
+        current_call_premium = call_premium
+    if current_put_premium is None:
+        current_put_premium = put_premium
+
+    return [
+        # Short call
+        {
+            'type': 'call', 'position': 'short',
+            'strike': strike, 'expiry': str(expiration),
+            'price': call_premium, 'current_price': current_call_premium,
+            'quantity': quantity, 'iv': call_iv
+        },
+        # Long put
+        {
+            'type': 'put', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': put_premium, 'current_price': current_put_premium,
+            'quantity': quantity, 'iv': put_iv
+        },
+    ]
+
+
+def call_ratio_spread(long_strike, short_strike, expiration,
+                      long_premium=0.0, short_premium=0.0,
+                      current_long_premium=None, current_short_premium=None,
+                      ratio=2, quantity=1, long_iv=0.3, short_iv=0.3):
+    """
+    Call Ratio Spread: Buy 1 call at a lower strike, sell N calls at a higher strike.
+    Mildly bullish. Profits if stock rises moderately; losses if it rises sharply.
+    Can be entered for a credit (if short premium > long premium).
+
+    Structure:  Long 1 call (lower) | Short N calls (higher)
+
+    Parameters:
+        long_strike (float): Lower strike for the long call
+        short_strike (float): Higher strike for the short calls
+        ratio (int): Number of short calls per long call (typically 2)
+        expiration (str): Expiration date YYYY-MM-DD
+        long_premium (float): Premium paid for the long call
+        short_premium (float): Premium received per short call
+    """
+    if long_strike >= short_strike:
+        raise ValueError("Long call strike must be below short call strike")
+    if ratio < 2:
+        raise ValueError("Ratio must be at least 2 for a call ratio spread")
+
+    if current_long_premium is None:
+        current_long_premium = long_premium
+    if current_short_premium is None:
+        current_short_premium = short_premium
+
+    legs = [
+        {
+            'type': 'call', 'position': 'long',
+            'strike': long_strike, 'expiry': str(expiration),
+            'price': long_premium, 'current_price': current_long_premium,
+            'quantity': quantity, 'iv': long_iv
+        }
+    ]
+    for _ in range(ratio):
+        legs.append({
+            'type': 'call', 'position': 'short',
+            'strike': short_strike, 'expiry': str(expiration),
+            'price': short_premium, 'current_price': current_short_premium,
+            'quantity': quantity, 'iv': short_iv
+        })
+    return legs
+
+
+def put_ratio_spread(short_strike, long_strike, expiration,
+                     long_premium=0.0, short_premium=0.0,
+                     current_long_premium=None, current_short_premium=None,
+                     ratio=2, quantity=1, long_iv=0.3, short_iv=0.3):
+    """
+    Put Ratio Spread: Buy 1 put at a higher strike, sell N puts at a lower strike.
+    Mildly bearish. Profits if stock falls moderately; losses if it falls sharply.
+    Can be entered for a credit (if short premium > long premium).
+
+    Structure:  Long 1 put (higher) | Short N puts (lower)
+
+    Parameters:
+        short_strike (float): Lower strike for the short puts
+        long_strike (float): Higher strike for the long put
+        ratio (int): Number of short puts per long put (typically 2)
+        expiration (str): Expiration date YYYY-MM-DD
+        long_premium (float): Premium paid for the long put
+        short_premium (float): Premium received per short put
+    """
+    if long_strike <= short_strike:
+        raise ValueError("Long put strike must be above short put strike")
+    if ratio < 2:
+        raise ValueError("Ratio must be at least 2 for a put ratio spread")
+
+    if current_long_premium is None:
+        current_long_premium = long_premium
+    if current_short_premium is None:
+        current_short_premium = short_premium
+
+    legs = [
+        {
+            'type': 'put', 'position': 'long',
+            'strike': long_strike, 'expiry': str(expiration),
+            'price': long_premium, 'current_price': current_long_premium,
+            'quantity': quantity, 'iv': long_iv
+        }
+    ]
+    for _ in range(ratio):
+        legs.append({
+            'type': 'put', 'position': 'short',
+            'strike': short_strike, 'expiry': str(expiration),
+            'price': short_premium, 'current_price': current_short_premium,
+            'quantity': quantity, 'iv': short_iv
+        })
+    return legs

@@ -526,3 +526,207 @@ def double_diagonal_spread(put_long_strike, put_short_strike, call_short_strike,
             'iv': call_long_iv
         }
     ]
+
+
+def iron_butterfly(put_long_strike, atm_strike, call_long_strike,
+                   expiration,
+                   put_long_premium=0.0, atm_put_premium=0.0,
+                   atm_call_premium=0.0, call_long_premium=0.0,
+                   current_put_long_premium=None, current_atm_put_premium=None,
+                   current_atm_call_premium=None, current_call_long_premium=None,
+                   quantity=1,
+                   put_long_iv=0.3, atm_put_iv=0.3,
+                   atm_call_iv=0.3, call_long_iv=0.3):
+    """
+    Iron Butterfly: Sell an ATM straddle and buy OTM wings for protection.
+    Maximum profit when the underlying closes exactly at the ATM strike.
+
+    Structure:
+        Long OTM put  |  Short ATM put  |  Short ATM call  |  Long OTM call
+
+    Parameters:
+        put_long_strike (float): OTM put wing strike (lowest)
+        atm_strike (float): ATM short straddle strike (middle)
+        call_long_strike (float): OTM call wing strike (highest)
+        expiration (str): Expiration date YYYY-MM-DD
+        put_long_premium (float): Premium paid for OTM put wing
+        atm_put_premium (float): Premium received for short ATM put
+        atm_call_premium (float): Premium received for short ATM call
+        call_long_premium (float): Premium paid for OTM call wing
+    """
+    if not (put_long_strike < atm_strike < call_long_strike):
+        raise ValueError("Strike order must be: put wing < ATM < call wing")
+
+    if current_put_long_premium is None:
+        current_put_long_premium = put_long_premium
+    if current_atm_put_premium is None:
+        current_atm_put_premium = atm_put_premium
+    if current_atm_call_premium is None:
+        current_atm_call_premium = atm_call_premium
+    if current_call_long_premium is None:
+        current_call_long_premium = call_long_premium
+
+    return [
+        # Long OTM put (lower wing)
+        {
+            'type': 'put', 'position': 'long',
+            'strike': put_long_strike, 'expiry': str(expiration),
+            'price': put_long_premium, 'current_price': current_put_long_premium,
+            'quantity': quantity, 'iv': put_long_iv
+        },
+        # Short ATM put
+        {
+            'type': 'put', 'position': 'short',
+            'strike': atm_strike, 'expiry': str(expiration),
+            'price': atm_put_premium, 'current_price': current_atm_put_premium,
+            'quantity': quantity, 'iv': atm_put_iv
+        },
+        # Short ATM call
+        {
+            'type': 'call', 'position': 'short',
+            'strike': atm_strike, 'expiry': str(expiration),
+            'price': atm_call_premium, 'current_price': current_atm_call_premium,
+            'quantity': quantity, 'iv': atm_call_iv
+        },
+        # Long OTM call (upper wing)
+        {
+            'type': 'call', 'position': 'long',
+            'strike': call_long_strike, 'expiry': str(expiration),
+            'price': call_long_premium, 'current_price': current_call_long_premium,
+            'quantity': quantity, 'iv': call_long_iv
+        },
+    ]
+
+
+def jade_lizard(put_strike, call_short_strike, call_long_strike,
+                expiration,
+                put_premium=0.0, call_short_premium=0.0, call_long_premium=0.0,
+                current_put_premium=None, current_call_short_premium=None,
+                current_call_long_premium=None,
+                quantity=1, put_iv=0.3, call_short_iv=0.3, call_long_iv=0.3):
+    """
+    Jade Lizard: Short OTM put + short OTM call spread.
+    Structured so total credit > width of call spread → no upside risk.
+    Bullish to neutral. Profits if stock stays above put strike.
+
+    Structure:
+        Short OTM put  |  Short OTM call  |  Long higher OTM call
+
+    Parameters:
+        put_strike (float): OTM short put strike (below current price)
+        call_short_strike (float): OTM short call strike (above current price)
+        call_long_strike (float): OTM long call strike (above call_short_strike)
+        expiration (str): Expiration date YYYY-MM-DD
+        put_premium (float): Premium received for the short put
+        call_short_premium (float): Premium received for the short call
+        call_long_premium (float): Premium paid for the long call
+    """
+    if not (put_strike < call_short_strike < call_long_strike):
+        raise ValueError("Strike order must be: put strike < short call strike < long call strike")
+
+    if current_put_premium is None:
+        current_put_premium = put_premium
+    if current_call_short_premium is None:
+        current_call_short_premium = call_short_premium
+    if current_call_long_premium is None:
+        current_call_long_premium = call_long_premium
+
+    return [
+        # Short OTM put
+        {
+            'type': 'put', 'position': 'short',
+            'strike': put_strike, 'expiry': str(expiration),
+            'price': put_premium, 'current_price': current_put_premium,
+            'quantity': quantity, 'iv': put_iv
+        },
+        # Short OTM call (lower leg of call spread)
+        {
+            'type': 'call', 'position': 'short',
+            'strike': call_short_strike, 'expiry': str(expiration),
+            'price': call_short_premium, 'current_price': current_call_short_premium,
+            'quantity': quantity, 'iv': call_short_iv
+        },
+        # Long OTM call (upper leg of call spread — caps upside risk)
+        {
+            'type': 'call', 'position': 'long',
+            'strike': call_long_strike, 'expiry': str(expiration),
+            'price': call_long_premium, 'current_price': current_call_long_premium,
+            'quantity': quantity, 'iv': call_long_iv
+        },
+    ]
+
+
+def strip(strike, expiration,
+          call_premium=0.0, put_premium=0.0,
+          current_call_premium=None, current_put_premium=None,
+          quantity=1, call_iv=0.3, put_iv=0.3):
+    """
+    Strip: Long 1 call + Long 2 puts at the same strike and expiration.
+    Like a straddle but more bearish — doubles down on downside.
+    Profits from large moves, with greater gains to the downside.
+
+    Parameters:
+        strike (float): Strike price for all legs
+        expiration (str): Expiration date YYYY-MM-DD
+        call_premium (float): Premium paid for the call
+        put_premium (float): Premium paid per put (paid twice)
+    """
+    if current_call_premium is None:
+        current_call_premium = call_premium
+    if current_put_premium is None:
+        current_put_premium = put_premium
+
+    return [
+        # Long 1 call
+        {
+            'type': 'call', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': call_premium, 'current_price': current_call_premium,
+            'quantity': quantity, 'iv': call_iv
+        },
+        # Long 2 puts (represented as two legs for payoff clarity)
+        {
+            'type': 'put', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': put_premium, 'current_price': current_put_premium,
+            'quantity': quantity * 2, 'iv': put_iv
+        },
+    ]
+
+
+def strap(strike, expiration,
+          call_premium=0.0, put_premium=0.0,
+          current_call_premium=None, current_put_premium=None,
+          quantity=1, call_iv=0.3, put_iv=0.3):
+    """
+    Strap: Long 2 calls + Long 1 put at the same strike and expiration.
+    Like a straddle but more bullish — doubles down on upside.
+    Profits from large moves, with greater gains to the upside.
+
+    Parameters:
+        strike (float): Strike price for all legs
+        expiration (str): Expiration date YYYY-MM-DD
+        call_premium (float): Premium paid per call (paid twice)
+        put_premium (float): Premium paid for the put
+    """
+    if current_call_premium is None:
+        current_call_premium = call_premium
+    if current_put_premium is None:
+        current_put_premium = put_premium
+
+    return [
+        # Long 2 calls
+        {
+            'type': 'call', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': call_premium, 'current_price': current_call_premium,
+            'quantity': quantity * 2, 'iv': call_iv
+        },
+        # Long 1 put
+        {
+            'type': 'put', 'position': 'long',
+            'strike': strike, 'expiry': str(expiration),
+            'price': put_premium, 'current_price': current_put_premium,
+            'quantity': quantity, 'iv': put_iv
+        },
+    ]
