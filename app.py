@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 from data_fetch import get_stock_price, get_option_chain, get_expiration_dates, get_stock_info
 from strategies.strategies_factory import create_strategy
 from pricing import calculate_implied_volatility, calculate_greeks
-from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table
+from utils import calculate_strategy_payoff, calculate_strategy_current_value, create_payoff_chart, create_heatmap, create_risk_table, format_price, create_unrealized_pl_table, find_breakeven_points
 
 # Page configuration with improved styling
 st.set_page_config(
@@ -448,18 +448,6 @@ if 'stock_info' not in st.session_state:
     st.session_state['stock_info'] = None
 if 'theme' not in st.session_state:
     st.session_state['theme'] = "light"  # Default theme
-    # Add logo and app title with better styling
-    if os.path.exists("assets/logo.png"):
-        st.image("assets/logo.png", width=100)
-    st.title("Options Strategy Calculator")
-    
-    # Theme selector
-    theme = st.radio("Theme", ["Light", "Dark"], 
-                    index=0 if st.session_state['theme'] == "light" else 1,
-                    horizontal=True)
-    st.session_state['theme'] = theme.lower()
-    
-    st.divider()
 
 # Function to show app header
 def show_header():
@@ -1582,21 +1570,6 @@ def calculate_strategy_volatility(strategy_legs):
     if not ivs:
         return 0.3  # Default if no IVs found
     return sum(ivs) / len(ivs)
-
-def find_breakeven_points(price_range, payoffs):
-    """Find breakeven points in a strategy (where payoff crosses zero)."""
-    breakeven_points = []
-    for i in range(1, len(price_range)):
-        if (payoffs[i-1] <= 0 and payoffs[i] > 0) or (payoffs[i-1] >= 0 and payoffs[i] < 0):
-            # Linear interpolation to find precise breakeven
-            x0, y0 = price_range[i-1], payoffs[i-1]
-            x1, y1 = price_range[i], payoffs[i]
-            
-            if y1 - y0 != 0:  # Avoid division by zero
-                breakeven = x0 + (x1 - x0) * (-y0) / (y1 - y0)
-                breakeven_points.append(breakeven)
-    
-    return breakeven_points
 
 # Function to analyze and visualize strategy
 def analyze_strategy(strategy_legs, current_price, expiry_date=None, days_to_expiry=None, available_expirations=None):
