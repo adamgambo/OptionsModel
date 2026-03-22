@@ -488,23 +488,3 @@ def calculate_historical_volatility(ticker, period="1y", window=21):
     log_returns = np.log(data['Close'] / data['Close'].shift(1)).dropna()
     hv = log_returns.rolling(window=window).std() * np.sqrt(252)
     return hv.dropna()
-
-
-def get_option_by_strike(chain, strike):
-    """
-    Find the option with the closest strike price to the target strike.
-    
-    Parameters:
-        chain (DataFrame): Option chain DataFrame (calls or puts)
-        strike (float): Target strike price
-        
-    Returns:
-        Series: Option data for the closest strike
-    """
-    if chain.empty:
-        raise ValueError("Option chain is empty")
-    
-    # Find the index of the closest strike
-    idx = (chain['strike'] - strike).abs().idxmin()
-    
-    return chain.loc[idx]

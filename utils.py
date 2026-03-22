@@ -255,85 +255,85 @@ def calculate_strategy_payoff(strategy_legs, price_range, current_price=None):
     # Multiply by contract size (100 shares per contract) for options
     return payoffs * 100
 
-def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry, 
-                                    risk_free_rate=0.03, volatility=0.3):
+def _avg_iv(strategy_legs, default=0.3):
+    """Return the average implied volatility across all option legs."""
+    ivs = [leg['iv'] for leg in strategy_legs
+           if isinstance(leg, dict) and leg.get('type') in ('call', 'put') and 'iv' in leg]
+    return sum(ivs) / len(ivs) if ivs else default
+
+
+def _bsm_vectorized(option_type, S_arr, K, t, r, sigma):
+    """
+    Vectorized Black-Scholes-Merton for an array of spot prices S_arr.
+    Returns a numpy array of option values.
+    """
+    S = np.maximum(S_arr, 1e-6)
+    sigma = max(sigma, 1e-6)
+    d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * t) / (sigma * np.sqrt(t))
+    d2 = d1 - sigma * np.sqrt(t)
+    disc = np.exp(-r * t)
+    if option_type == 'call':
+        return np.maximum(0.0, S * norm.cdf(d1) - K * disc * norm.cdf(d2))
+    else:
+        return np.maximum(0.0, K * disc * norm.cdf(-d2) - S * norm.cdf(-d1))
+
+
+def calculate_strategy_current_value(strategy_legs, price_range, days_to_expiry,
+                                     risk_free_rate=0.03, volatility=0.3):
     """
     Calculate the current value of a strategy over a range of prices before expiration.
-    Uses current_price for market value calculations and price for cost basis.
-    
+    Uses vectorized BSM for all option legs — no Python-level loop over price points.
+
     Parameters:
         strategy_legs (list): List of leg dictionaries with type, position, strike, etc.
         price_range (array): Array of prices to calculate value for
         days_to_expiry (int): Days remaining until expiration
         risk_free_rate (float): Annualized risk-free interest rate
         volatility (float): Implied volatility if not specified in legs
-        
+
     Returns:
         array: Current values for each price in price_range
     """
-    # Convert price_range to numpy array if it's not already
-    price_range = np.array(price_range)
-    
-    # Initialize values array with zeros
+    price_range = np.array(price_range, dtype=float)
     values = np.zeros(len(price_range))
-    
-    # Convert days to years
     years_to_expiry = max(days_to_expiry, 0) / 365
-    
-    # Validate strategy_legs
+
     if not strategy_legs or not isinstance(strategy_legs, list):
         logger.warning("Invalid strategy_legs provided to calculate_strategy_current_value")
         return values
-    
-    # Calculate value for each leg
+
     for leg in strategy_legs:
-        # Validate leg format
         if not isinstance(leg, dict):
-            logger.warning(f"Invalid leg format in calculate_strategy_current_value: {leg}")
             continue
-        
-        # Extract leg parameters with defaults for missing values
+
         leg_type = leg.get('type', '')
         position = leg.get('position', '')
         strike = leg.get('strike', 0)
         entry_premium = leg.get('price', 0)
-        current_premium = leg.get('current_price', entry_premium)
         quantity = leg.get('quantity', 1)
         leg_iv = leg.get('iv', volatility)
-        
-        # Skip invalid legs
+
         if not leg_type or not position:
             continue
-        
-        # Determine position sign
+
         sign = 1 if position == 'long' else -1
-        
-        # Calculate current value based on leg type
-        if leg_type in ['call', 'put']:
-            # For option legs, calculate theoretical value at each price point
-            for i, price in enumerate(price_range):
-                if years_to_expiry <= 0:
-                    # At or past expiration, use intrinsic value
-                    if leg_type == 'call':
-                        option_value = max(0, price - strike)
-                    else:  # put
-                        option_value = max(0, strike - price)
+
+        if leg_type in ('call', 'put'):
+            if years_to_expiry <= 0:
+                if leg_type == 'call':
+                    option_values = np.maximum(0.0, price_range - strike)
                 else:
-                    # Before expiration, use Black-Scholes
-                    option_value = black_scholes(
-                        leg_type, price, strike, years_to_expiry, risk_free_rate, leg_iv
-                    )
-                
-                # Calculate unrealized P/L: current theoretical value - entry price
-                unrealized_pl = option_value - entry_premium
-                values[i] += sign * unrealized_pl * quantity
-                
+                    option_values = np.maximum(0.0, strike - price_range)
+            else:
+                option_values = _bsm_vectorized(
+                    leg_type, price_range, strike, years_to_expiry, risk_free_rate, leg_iv
+                )
+            values += sign * (option_values - entry_premium) * quantity
+
         elif leg_type == 'stock':
-            # Stock value: current_price - purchase_price
             purchase_price = leg.get('price', price_range[0])
             values += sign * (price_range - purchase_price) * quantity
-    
-    # Multiply by contract size (100 shares per contract) for options
+
     return values * 100
 
 def create_unrealized_pl_table(strategy_legs, current_price):
@@ -494,13 +494,8 @@ def create_payoff_chart(strategy_name, strategy_legs, current_price, price_range
     
     # Add current value line if days_to_expiry is provided and we're before expiration
     if show_current_value and days_to_expiry is not None and days_to_expiry > 0:
-        # Get average implied volatility from legs
-        ivs = [leg.get('iv', 0.3) for leg in strategy_legs 
-              if leg.get('type') in ('call', 'put') and 'iv' in leg]
-        avg_iv = sum(ivs) / len(ivs) if ivs else 0.3
-        
         current_values = calculate_strategy_current_value(
-            strategy_legs, price_range, days_to_expiry, volatility=avg_iv
+            strategy_legs, price_range, days_to_expiry, volatility=_avg_iv(strategy_legs)
         )
         
         fig.add_trace(go.Scatter(
@@ -819,13 +814,9 @@ def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.0
         if days_to_expiry == 0:  # At expiration
             z[i, :] = calculate_strategy_payoff(strategy_legs, prices, current_price)
         else:  # Before expiration
-            # Get average implied volatility from legs
-            ivs = [leg.get('iv', volatility) for leg in strategy_legs 
-                  if leg.get('type') in ('call', 'put') and 'iv' in leg]
-            avg_iv = sum(ivs) / len(ivs) if ivs else volatility
-            
             z[i, :] = calculate_strategy_current_value(
-                strategy_legs, prices, days_to_expiry, risk_free_rate, avg_iv
+                strategy_legs, prices, days_to_expiry, risk_free_rate,
+                _avg_iv(strategy_legs, default=volatility)
             )
     
     # Create the heatmap figure
@@ -839,11 +830,12 @@ def create_heatmap(strategy_legs, current_price, expiry_date, risk_free_rate=0.0
     ))
     
     # Add current price line
+    theme_config = get_chart_theme()
     fig.add_shape(
         type="line",
         x0=current_price, x1=current_price,
         y0=min(days), y1=max(days),
-        line=dict(color="yellow", width=2, dash="dash")
+        line=dict(color=theme_config['current_price_color'], width=2, dash="dash")
     )
     
     # Update layout
@@ -899,13 +891,9 @@ def create_risk_table(strategy_legs, current_price, days_to_expiry, volatility=0
     
     # Calculate current value if days_to_expiry > 0
     if days_to_expiry > 0:
-        # Get average implied volatility from legs
-        ivs = [leg.get('iv', volatility) for leg in strategy_legs 
-              if leg.get('type') in ('call', 'put') and 'iv' in leg]
-        avg_iv = sum(ivs) / len(ivs) if ivs else volatility
-        
         current_values = calculate_strategy_current_value(
-            strategy_legs, prices, days_to_expiry, volatility=avg_iv
+            strategy_legs, prices, days_to_expiry,
+            volatility=_avg_iv(strategy_legs, default=volatility)
         )
         df.loc[f"Current (T-{days_to_expiry})"] = [f"${p:.2f}" for p in current_values]
     

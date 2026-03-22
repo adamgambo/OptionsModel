@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Application information
 APP_NAME = "Options Strategy Calculator"
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.6.0"
 APP_DESCRIPTION = "A comprehensive Python-based web application for analyzing and visualizing options trading strategies using real-time market data."
 APP_AUTHOR = "Options Analyzer Team"
 
